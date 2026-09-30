@@ -1,0 +1,29 @@
+# flow grasp：读工件外部离线 NPZ + 工件位姿，按分数出最多 10 组抓取候选。
+# 只出抓取位姿；不做 IK / 碰撞 / 轨迹，不读深度图和内参。
+asset_root: /opt/openmind/sps_database/grasping/objects
+
+# 输出候选数量上限（分数从高到低）。
+candidate_count: 10
+
+# 种类 -> 目录 / NPZ 文件名。value 为字符串时目录名与种类相同；
+# 为映射时用 object_directory / label_file / label_files 指定。
+# 正式代号 QR00010 的资产库历史目录名为 QR0010。
+grasp_label_files:
+  QR0001: QR0001_fgc_fc0.5_0.6_0.3.npz
+  QR0002: QR0002_fgc_fc0.5.npz
+  QR0003: QR0003_fc0.7_indis20_0.020_center_straight_add_angle_fast_transfer_transed.npz
+  QR0004: QR0004_fgc_fc0.5_0.6_0.3.npz
+  QR0005: QR0005_fc0.4_indis125_center_0.0_directionx_clu_114_filter_filter_add_fast_transfer.npz
+  QR0006:
+    object_directory: QR0006
+    label_files:
+      - QR0006_center_fast_transfer_fixed_width_77_c.npz
+      - QR0006_fgc_fc0.5_0.07_0.035_closing.npz
+  QR0007: QR0007_fgc_fc0.5_0.006_0.035_closing.npz
+  QR0008: QR0008_fc0.7_true_indis20_0.035_filter_DBSCAN_add_angle_transed_fast_transfer.npz
+  QR0009:
+    object_directory: QR0009
+    label_file: QR0009_fgc_fc0.5.npz
+  QR0010:
+    object_directory: QR0010
+    label_file: QR0010_fgc_fc0.5_0.035_closing_filter_changedrot_fast_transfer.npz

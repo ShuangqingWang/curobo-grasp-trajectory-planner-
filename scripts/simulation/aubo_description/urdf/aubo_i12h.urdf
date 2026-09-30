@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<!--
+  AUBO-i12H model for the physical robot connected to this project.
+
+  Kinematics source:
+    rob1.RobotConfig.getRobotType() == "aubo_i12H"
+    rob1.RobotConfig.getKinematicsParam(true)
+
+  The six revolute-joint origins encode the controller's calibrated modified-DH
+  transform exactly:
+      A_i(q_i) = Rx(alpha_i) Tx(a_i) Rz(theta_i + q_i) Tz(d_i)
+
+  Geometry source:
+    AUBO official i12H STEP, SHA-256
+    3003f06588fecdf72fed3a36412b5fd2b41a9809af53da43f2d21272834a8948
+
+  Mesh coordinates are metres and are expressed in the nominal i12H link
+  frames.  The calibrated joint frames below intentionally introduce the
+  controller's sub-millimetre / sub-0.11-degree factory compensation.
+-->
+<robot name="aubo_i12h">
+  <material name="aubo_dark"><color rgba="0.30 0.33 0.33 1"/></material>
+  <material name="aubo_light"><color rgba="0.74 0.79 0.81 1"/></material>
+  <material name="aubo_blue"><color rgba="0.45 0.67 0.76 1"/></material>
+  <material name="aubo_warm"><color rgba="0.82 0.80 0.73 1"/></material>
+  <material name="aubo_gold"><color rgba="0.78 0.60 0.32 1"/></material>
+  <material name="aubo_green"><color rgba="0.40 0.66 0.55 1"/></material>
+  <material name="aubo_red"><color rgba="0.67 0.38 0.34 1"/></material>
+
+  <link name="base_link">
+    <visual><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/base_link.STL"/></geometry><material name="aubo_dark"/></visual>
+    <collision><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/base_link.STL"/></geometry></collision>
+  </link>
+
+  <link name="shoulder_Link">
+    <visual><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/shoulder_Link.STL"/></geometry><material name="aubo_light"/></visual>
+    <collision><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/shoulder_Link.STL"/></geometry></collision>
+  </link>
+  <joint name="shoulder_joint" type="revolute">
+    <parent link="base_link"/><child link="shoulder_Link"/>
+    <origin xyz="0 0 0.163" rpy="0 0 3.141592653589793"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283185307179586" upper="6.283185307179586" effort="100" velocity="3.106686068549907"/>
+  </joint>
+
+  <link name="upperArm_Link">
+    <visual><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/upperArm_Link.STL"/></geometry><material name="aubo_blue"/></visual>
+    <collision><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/upperArm_Link.STL"/></geometry></collision>
+  </link>
+  <joint name="upperArm_joint" type="revolute">
+    <parent link="shoulder_Link"/><child link="upperArm_Link"/>
+    <origin xyz="-0.000991499982774258 0.191046189272425 0.0000640195786026701"
+            rpy="-0.000000000000182729 -1.57046122680442 -1.57079632679471"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283185307179586" upper="6.283185307179586" effort="100" velocity="3.106686068549907"/>
+  </joint>
+
+  <link name="foreArm_Link">
+    <visual><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/foreArm_Link.STL"/></geometry><material name="aubo_warm"/></visual>
+    <collision><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/foreArm_Link.STL"/></geometry></collision>
+  </link>
+  <joint name="foreArm_joint" type="revolute">
+    <parent link="upperArm_Link"/><child link="foreArm_Link"/>
+    <origin xyz="0.580595799996518 -0.000000073699591064403 0.0000461999401217392"
+            rpy="-3.13999742363161 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.897246558310587" upper="2.897246558310587" effort="100" velocity="4.660028943"/>
+  </joint>
+
+  <link name="wrist1_Link">
+    <visual><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/wrist1_Link.STL"/></geometry><material name="aubo_gold"/></visual>
+    <collision><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/wrist1_Link.STL"/></geometry></collision>
+  </link>
+  <joint name="wrist1_joint" type="revolute">
+    <parent link="foreArm_Link"/><child link="wrist1_Link"/>
+    <origin xyz="0.552972999992780 -0.0000000762798584270195 -0.0000461999359335617"
+            rpy="3.141592653589793 0.00165107997600001 1.570796326794897"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283185307179586" upper="6.283185307179586" effort="100" velocity="4.136430327226561"/>
+  </joint>
+
+  <link name="wrist2_Link">
+    <visual><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/wrist2_Link.STL"/></geometry><material name="aubo_green"/></visual>
+    <collision><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/wrist2_Link.STL"/></geometry></collision>
+  </link>
+  <joint name="wrist2_joint" type="revolute">
+    <parent link="wrist1_Link"/><child link="wrist2_Link"/>
+    <origin xyz="-0.000558800005819649 0.117938338727483 0.000120211057202555"
+            rpy="-1.56977705675201 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283185307179586" upper="6.283185307179586" effort="100" velocity="4.136430327226561"/>
+  </joint>
+
+  <link name="wrist3_Link">
+    <visual><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/wrist3_Link.STL"/></geometry><material name="aubo_red"/></visual>
+    <collision><geometry><mesh filename="package://aubo_description/meshes/aubo_i12h/wrist3_Link.STL"/></geometry></collision>
+  </link>
+  <joint name="wrist3_joint" type="revolute">
+    <parent link="wrist2_Link"/><child link="wrist3_Link"/>
+    <origin xyz="-0.000113499998406041 -0.103499838555059 -0.000182808852697633"
+            rpy="1.57256259682146 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283185307179586" upper="6.283185307179586" effort="100" velocity="4.136430327226561"/>
+  </joint>
+
+  <!-- Controller forwardToolKinematics returns this single flange frame. -->
+  <link name="flange_link"/>
+  <joint name="wrist3_to_flange" type="fixed">
+    <parent link="wrist3_Link"/><child link="flange_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+</robot>

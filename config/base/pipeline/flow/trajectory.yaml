@@ -1,0 +1,93 @@
+# flow trajectory（文档「第二流程」）：
+#   一 load_grasp_candidates → 二 fuse_base_cloud → 三 build_collision_world
+#   → 四 plan_full_cycle → 五 write_trajectory_output
+# 两段联合：拍照位→抓取（位姿目标）、抓取实际末点→固定 q_place（关节目标）。
+# 两段均通过评级与复核才发布。
+
+# 抓取候选上限（与 grasp.yaml 的 candidate_count 对应）。
+max_grasp_candidates: 10
+
+# true：关早停，穷举全部候选，仅离线诊断使用。
+evaluate_all_grasp_candidates: false
+
+# 首个两段合格的完整周期立即结束搜索（文档 5.3「首个两段合格即停止」）。
+stop_on_first_complete_cycle: true
+
+# 搜索预算。耗尽时明确记为「预算耗尽」，并列出未尝试目标数。
+max_selection_ms: 15000
+max_no_solution_search_ms: 30000
+max_no_solution_candidates: 12
+
+# ---- 轨迹质量评级（文档 5.1）----
+# 三项指标各自出 A / B / 丢弃，整条取最差的那一档。
+# 抓取段查三项；放置段不查抬升（允许向上运动）。
+grade:
+  # 指标一 路径倍率 = 法兰实际路径长 / 两端直线距离
+  path_length_ratio_a: 1.5      # ≤ 该值为 A
+  path_length_ratio_b: 2.0      # ≤ 该值为 B，超过即丢弃
+  # 指标二 抬升：抓取轨迹法兰最高点高出拍照点的量（mm）。只作用于抓取段。
+  lift_above_photo_a_mm: 5.0    # ≤ 该值为 A
+  lift_above_photo_b_mm: 10.0   # ≤ 该值为 B，超过即丢弃
+  # 指标三 J1~J6 单轴「净转角」最大值（度）。
+  # 净转角 D_j = |q_j(终点) − q_j(起点)|，六轴全部参与，保留实际圈数不按 360° 取模。
+  net_joint_travel_a_deg: 180.0   # ≤ 该值为 A
+  net_joint_travel_b_deg: 360.0   # ≤ 该值为 B，超过即丢弃
+
+# 抬升判据的数值容差（mm）。正解浮点噪声在 1e-5 mm 量级，机器人重复定位精度
+# 在 ±50 微米量级；取 1 微米既高于噪声又远低于任何机械意义。
+lift_numerical_epsilon_mm: 0.001
+
+# ---- 运动学复核（文档 5.2）----
+# 净转角复核：J1~J6 任一轴净转角 > 该值失败。恰好 360° 不触发，与 B 档上限一致。
+max_redundant_joint_travel_deg: 360.0
+
+# 统一端点标准：位置 ≤1.0mm、姿态 ≤0.2°，两项均须通过。
+# 该值同时是 cuRobo 服务端的收敛判据（--position-tolerance-mm / --orientation-tolerance-deg）。
+endpoint_position_tolerance_mm: 1.0
+endpoint_rotation_tolerance_deg: 0.2
+
+# 放置段关节端点容差（度）：放置首点 vs 抓取末点、放置末点 vs q_place。
+# 独立于法兰姿态容差，不能用 0.2° 代替；关节差保留实际圈数，不把差 360° 当同一构型。
+endpoint_joint_tolerance_deg: 0.5
+
+# cuRobo GPU 规划服务。
+curobo:
+  host: 127.0.0.1
+  port: 34567
+  timeout_ms: 120000
+  # 抓取段（位姿目标）每个候选交出几条轨迹（<= 服务端 --trajopt-seeds）。
+  # ⚠️ cuRobo 的排序按它自己的代价（精确+平滑），与本文件的 A/B 评级无关，
+  #    实测它会把绕行 9 倍、高出拍照点 1.18 m 的轨迹排在第 2 名，故必须逐条评级。
+  return_trajectories: 4
+  # 放置段（关节目标）每次交出几条轨迹。
+  place_return_trajectories: 4
+
+  # 图规划(PRM)。当前关闭：只作兜底，不是必经步骤（文档 2.8 ③）。
+  # 关闭时压时重磨取 finetune_attempts=1 / dt_scale=0.55；开启时 3 / 0.75。
+  # 抓取段与放置段统一受它控制。决定规划器构造，启动时传入 GPU 子进程，运行期不可改。
+  enable_graph_planner: false
+
+  # 激活距离（阈值，mm）：穿透量 = 球半径 + 激活距离 − d(球心) > 0 判碰撞（文档 2.5.9）。
+  # 全局参数，同时作用于本体 387 球与末端 220 球。启动时传入 GPU 子进程，运行期不可改。
+  collision_activation_mm: 3.0
+
+  # ESDF 体素边长（mm）。量化误差硬上界 = 体素 × √3/2 = 2.598mm（文档 2.5.6、附录 A.3）。
+  world_voxel_size_mm: 3.0
+
+  # 体素缓存预分配的 z_hi 上限（mm）。长方体 +Z 取 max(拍照法兰.z, 放置法兰.z)，
+  # 缓存按最大长方体预分配：X、Y 各 2×CAP，Z 从工作台底面 −1000 到本值（文档 0.4）。
+  # 本轮网格格数超过缓存容量时 set_world 显式报错（不静默截断）。
+  world_cache_z_hi_max_mm: 600.0
+
+  # 平台按体素并入同一张距离场；置 false 直接报错，非可切换项（文档 2.13）。
+  platform_as_voxel: true
+
+# 轨迹点采样间隔（aubo_joint_path/v1 固定 0.025 s/点）。
+trajectory_point_interval_s: 0.025
+
+# 完整周期总分 100 = 抓取离线分 + 拍照→抓取 + 抓取→放置 + 连续性。
+score_weights:
+  grasp_quality: 20.0
+  photo_to_grasp: 35.0
+  grasp_to_place: 35.0
+  continuity: 10.0

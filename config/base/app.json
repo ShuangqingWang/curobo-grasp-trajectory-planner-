@@ -1,0 +1,157 @@
+{
+  "service_process_name": "OpenmindTrajectoryPlan",
+  "trigger_tcp": {
+    "port": 9108,
+    "bind_host": "0.0.0.0",
+    "protocol_magic": "GP02",
+    "max_request_text_bytes": 1048576,
+    "max_depth_image_bytes": 134217728,
+    "max_total_frame_bytes": 536870912,
+    "receive_timeout_ms": 30000
+  },
+  "gripper_width_max_m": 0.1,
+  "camera_clearance_along_tcp_z_mm": -84.0,
+  "camera_clearance_comment": "相机在夹爪前端；TCP +Z 指向工件；沿局部 -Z 退开，避免相机先撞",
+  "t_flange_tcp": [
+    [
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      -0.2115
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "t_tcp_grasp_database": [
+    [
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      -1,
+      0,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "photo": {
+    "q_deg": [
+      78.6433,
+      23.3158,
+      -122.9319,
+      -74.6031,
+      -89.5315,
+      -91.3628
+    ],
+    "flange_xyzrxryrz_mm_deg": [
+      55.325,
+      -705.2720,
+      174.801,
+      179.9978,
+      18.26,
+      80.3021
+    ]
+  },
+  "place": {
+    "q_deg": [
+      -15.471102,
+      16.283438,
+      -104.415475,
+      -30.80613,
+      -89.958134,
+      -85.480995
+    ],
+    "flange_xyzrxryrz_mm_deg": [
+      -779.134,
+      16.227,
+      334.225,
+      179.9943,
+      0.0056,
+      -19.7956
+    ]
+  },
+  "end_effector": {
+    "parent_frame": "flange_link",
+    "geometry_type": "box",
+    "negative_extent_xyz_mm": [
+      31.0,
+      50.0,
+      0.0
+    ],
+    "positive_extent_xyz_mm": [
+      31.0,
+      50.0,
+      200.0
+    ],
+    "sphere_layout": "edges",
+    "sphere_radius_mm": 2.6,
+    "collision_margin_mm": 0.0,
+    "color_rgb": [
+      69,
+      148,
+      122
+    ],
+    "allow_temporary_override": true
+  },
+  "base_platform": {
+    "negative_extent_xyz_mm": [
+      400.0,
+      400.0,
+      1000.0
+    ],
+    "positive_extent_xyz_mm": [
+      400.0,
+      400.0,
+      0.0
+    ],
+    "collision_margin_mm": 0.0,
+    "color_rgb": [
+      90,
+      90,
+      110
+    ],
+    "installation_exclusion": {
+      "enabled": false,
+      "geometry_type": "cylinder",
+      "center_xy_mm": [
+        0.0,
+        0.0
+      ],
+      "diameter_mm": 300.0,
+      "depth_mm": 50.0
+    }
+  },
+  "robot_reach_mm": 1205.6,
+  "log_root": "/var/hybird_log/grasp_log",
+  "output_root": "output"
+}

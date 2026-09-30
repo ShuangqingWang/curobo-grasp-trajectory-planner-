@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grasp Planner Project"
+  short_description: "Use the AUBO grasp planner workflow and pick environment."
+  default_prompt: "Use this project workflow for the AUBO grasp planner repository, including the pick conda environment and standard tests."

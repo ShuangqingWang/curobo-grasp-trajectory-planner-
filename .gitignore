@@ -1,0 +1,51 @@
+# Python generated files
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local agent state
+.agents/
+.codex/
+
+# Logs, caches and temporary files
+*.log
+*.tmp
+*.bak
+*~
+core
+core.*
+
+# Planner runtime state and generated outputs
+grasp_planner_pkg/input/plan.trigger.json
+grasp_planner_pkg/input/.trajectory_request.txt
+# output/ 保留本地当前结果；每次触发的历史副本另存 /var/hybrid_log。
+grasp_planner_pkg/output/*
+grasp_planner_pkg/build/
+
+# Generated demo / robot execution outputs
+grasp_planner_pkg/scripts/aubo_test/output/*
+
+# Native third-party build products (third-party source repos remain separate)
+grasp_planner_pkg/third_party/**/build/
+grasp_planner_pkg/third_party/**/install/
+
+# This repository's root
+/build/
+/output/
+/log/
+/logs/
+/.aws/
+/.agents/
+/.codex/
+/input/*
+!/input/README.txt

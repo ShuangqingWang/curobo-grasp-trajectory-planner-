@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AUBO-i12H 机械臂建图</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <canvas id="viewport" aria-label="AUBO-i12H 机械臂三维视图"></canvas>
+
+      <aside class="control-panel" aria-label="模型控制">
+        <header class="panel-header">
+          <div>
+            <h1>AUBO-i12H</h1>
+            <p id="loadStatus">加载 URDF...</p>
+          </div>
+          <div class="model-chip">URDF+STL</div>
+        </header>
+
+        <section class="section">
+          <div class="section-title">姿态</div>
+          <div class="preset-row">
+            <button type="button" class="preset" data-preset="zero">零位</button>
+            <button type="button" class="preset" data-preset="home">工作位</button>
+            <button type="button" class="preset" data-preset="reach">前伸</button>
+            <button type="button" class="preset" data-preset="fold">折叠</button>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">关节角 deg</div>
+          <div id="jointControls" class="joint-list"></div>
+          <div class="button-row">
+            <button id="applyJointAngles" type="button">执行关节角</button>
+            <button id="readJointAngles" type="button">读取当前</button>
+          </div>
+          <details class="list-input">
+            <summary>列表输入</summary>
+            <label for="jointAnglesList">J1-J6 deg</label>
+            <textarea id="jointAnglesList" rows="2" spellcheck="false" placeholder="[0, 0, 0, 0, 0, 0]"></textarea>
+            <button id="applyJointAnglesList" type="button">执行列表关节角</button>
+          </details>
+          <p id="jointStatus" class="status-line">0.0 deg</p>
+        </section>
+
+        <section class="section">
+          <div class="section-title">flange_link 在基座下的位姿 mm / deg</div>
+          <div class="pose-grid" aria-label="flange_link 在基座坐标系下的位姿">
+            <div class="pose-cell">
+              <span>X mm</span>
+              <input id="flangePoseX" type="number" step="0.1" value="0.0" />
+            </div>
+            <div class="pose-cell">
+              <span>Y mm</span>
+              <input id="flangePoseY" type="number" step="0.1" value="0.0" />
+            </div>
+            <div class="pose-cell">
+              <span>Z mm</span>
+              <input id="flangePoseZ" type="number" step="0.1" value="0.0" />
+            </div>
+            <div class="pose-cell">
+              <span>Rx deg</span>
+              <input id="flangePoseRx" type="number" step="0.01" value="0.0" />
+            </div>
+            <div class="pose-cell">
+              <span>Ry deg</span>
+              <input id="flangePoseRy" type="number" step="0.01" value="0.0" />
+            </div>
+            <div class="pose-cell">
+              <span>Rz deg</span>
+              <input id="flangePoseRz" type="number" step="0.01" value="0.0" />
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="applyFlangePose" type="button">执行 flange_link 位姿</button>
+            <button id="readFlangePose" type="button">读取当前</button>
+          </div>
+          <details class="list-input">
+            <summary>列表输入</summary>
+            <label for="flangePoseList">X Y Z Rx Ry Rz (mm / deg)</label>
+            <textarea id="flangePoseList" rows="2" spellcheck="false" placeholder="[55.325, -645.275, 174.801, 179.9978, 18.2600, 80.3021]"></textarea>
+            <button id="applyFlangePoseList" type="button">执行列表 flange_link 位姿</button>
+          </details>
+          <p id="flangePoseStatus" class="status-line">IK 就绪</p>
+        </section>
+
+        <section class="section">
+          <div class="section-title">显示</div>
+          <label class="toggle-row">
+            <input id="toggleCart" type="checkbox" checked />
+            <span>小车</span>
+          </label>
+          <label class="toggle-row">
+            <input id="toggleMesh" type="checkbox" checked />
+            <span>mesh</span>
+          </label>
+          <label class="toggle-row">
+            <input id="toggleCollisionSpheres" type="checkbox" />
+            <span>本体碰撞球（半透明）</span>
+          </label>
+          <!-- 改动十：末端球与激活距离层。只控制显示，不影响规划中的碰撞检测。 -->
+          <label class="toggle-row">
+            <input id="toggleEndEffectorSpheres" type="checkbox" />
+            <span>末端碰撞球（紫色）</span>
+          </label>
+          <label class="toggle-row">
+            <input id="toggleActivationShell" type="checkbox" />
+            <span>激活距离层</span>
+          </label>
+          <label class="toggle-row">
+            <input id="toggleTool" type="checkbox" checked />
+            <span>末端</span>
+          </label>
+          <label class="toggle-row">
+            <input id="toggleGrid" type="checkbox" checked />
+            <span>网格</span>
+          </label>
+          <label class="toggle-row">
+            <input id="toggleFrames" type="checkbox" checked />
+            <span>坐标系</span>
+          </label>
+          <label class="toggle-row">
+            <input id="togglePointCloud" type="checkbox" checked />
+            <span>点云</span>
+          </label>
+          <label class="toggle-row">
+            <input id="toggleWorkpieceExclusion" type="checkbox" checked />
+            <span>目标工件豁免盒</span>
+          </label>
+          <label class="toggle-row">
+            <input id="toggleTrajectory" type="checkbox" checked />
+            <span>轨迹</span>
+          </label>
+        </section>
+
+        <details class="section config-section" open>
+          <summary>第一阶段10组抓取坐标系（自动更新）</summary>
+          <p class="status-line">自动监听项目相对路径 output/grasp_generation/grasp_result.json；每组4个半透明XYZ坐标系。</p>
+          <label class="toggle-row grasp-pose-master-toggle">
+            <input id="toggleGraspCandidatePoses" type="checkbox" checked />
+            <span>显示全部抓取候选坐标系</span>
+          </label>
+          <div class="grasp-pose-toggle-grid">
+            <label class="toggle-row">
+              <input id="toggleGraspFlangePoses" type="checkbox" checked />
+              <span>grasp_flange（65 mm）</span>
+            </label>
+            <label class="toggle-row">
+              <input id="toggleGraspTcpPoses" type="checkbox" checked />
+              <span>grasp_tcp（80 mm）</span>
+            </label>
+            <label class="toggle-row">
+              <input id="toggleTrajectoryGraspFlangePoses" type="checkbox" checked />
+              <span>trajectory_grasp_flange（35 mm）</span>
+            </label>
+            <label class="toggle-row">
+              <input id="toggleTrajectoryGraspTcpPoses" type="checkbox" checked />
+              <span>trajectory_grasp_tcp（50 mm）</span>
+            </label>
+          </div>
+          <p id="graspCandidatePoseStatus" class="status-line">等待读取抓取候选...</p>
+        </details>
+
+        <details class="section config-section" open>
+          <summary>AGV 基座平台（启动 config 默认）</summary>
+          <p class="status-line">六个数值是从机械臂基座坐标原点沿 -X/+X/-Y/+Y/-Z/+Z 的延伸距离。</p>
+          <div class="field-grid three">
+            <label>
+              <span>-X 延伸 mm</span>
+              <input type="number" step="1" min="0" value="400" data-cart-field="negativeX" />
+            </label>
+            <label>
+              <span>+X 延伸 mm</span>
+              <input type="number" step="1" min="0" value="400" data-cart-field="positiveX" />
+            </label>
+            <label>
+              <span>-Y 延伸 mm</span>
+              <input type="number" step="1" min="0" value="400" data-cart-field="negativeY" />
+            </label>
+            <label>
+              <span>+Y 延伸 mm</span>
+              <input type="number" step="1" min="0" value="400" data-cart-field="positiveY" />
+            </label>
+            <label>
+              <span>-Z 延伸 mm</span>
+              <input type="number" step="1" min="0" value="1000" data-cart-field="negativeZ" />
+            </label>
+            <label>
+              <span>+Z 延伸 mm</span>
+              <input type="number" step="1" min="0" value="0" data-cart-field="positiveZ" />
+            </label>
+          </div>
+          <div class="file-row">
+            <button id="loadConfiguredPlatform" type="button">重新加载启动 config 平台</button>
+          </div>
+          <p id="platformStatus" class="status-line">正在加载启动 config...</p>
+        </details>
+
+        <details class="section config-section" open>
+          <summary>法兰末端矩形（启动 config 默认）</summary>
+          <label>
+            <span>数据来源</span>
+            <select id="toolSourceMode">
+              <option value="config" selected>启动 config 默认矩形</option>
+              <option value="custom">仅本次可视化临时自定义</option>
+            </select>
+          </label>
+          <p class="status-line">末端只有一个坐标系：flange_link。矩形与法兰 XYZ 轴平行，六个值分别表示从法兰原点向 ±X/±Y/±Z 的延伸距离。</p>
+          <div class="field-grid three">
+            <label>
+              <span>-X 延伸 mm</span>
+              <input type="number" step="1" min="0" value="0" data-tool-field="negativeX" />
+            </label>
+            <label>
+              <span>+X 延伸 mm</span>
+              <input type="number" step="1" min="0" value="0" data-tool-field="positiveX" />
+            </label>
+            <label>
+              <span>-Y 延伸 mm</span>
+              <input type="number" step="1" min="0" value="0" data-tool-field="negativeY" />
+            </label>
+            <label>
+              <span>+Y 延伸 mm</span>
+              <input type="number" step="1" min="0" value="0" data-tool-field="positiveY" />
+            </label>
+            <label>
+              <span>-Z 延伸 mm</span>
+              <input type="number" step="1" min="0" value="0" data-tool-field="negativeZ" />
+            </label>
+            <label>
+              <span>+Z 延伸 mm</span>
+              <input type="number" step="1" min="0" value="0" data-tool-field="positiveZ" />
+            </label>
+          </div>
+          <div class="file-row">
+            <button id="loadConfiguredTool" type="button">重新加载启动 config 矩形</button>
+            <button id="applyCustomTool" type="button">应用临时自定义矩形</button>
+          </div>
+          <p id="toolStatus" class="status-line">正在加载启动 config...</p>
+        </details>
+
+        <details class="section config-section" open>
+          <summary>目标工件（config + request 唯一数据源）</summary>
+          <p class="status-line">自动读取 input/request.txt 的工件代号和几何中心位姿，再从启动 config 选择该类型六向尺寸。</p>
+          <div class="field-grid three">
+            <label>
+              <span>-X 挖除 mm</span>
+              <input type="number" readonly value="0" data-workpiece-field="negativeX" />
+            </label>
+            <label>
+              <span>+X 挖除 mm</span>
+              <input type="number" readonly value="0" data-workpiece-field="positiveX" />
+            </label>
+            <label>
+              <span>-Y 挖除 mm</span>
+              <input type="number" readonly value="0" data-workpiece-field="negativeY" />
+            </label>
+            <label>
+              <span>+Y 挖除 mm</span>
+              <input type="number" readonly value="0" data-workpiece-field="positiveY" />
+            </label>
+            <label>
+              <span>-Z 挖除 mm</span>
+              <input type="number" readonly value="0" data-workpiece-field="negativeZ" />
+            </label>
+            <label>
+              <span>+Z 挖除 mm</span>
+              <input type="number" readonly value="0" data-workpiece-field="positiveZ" />
+            </label>
+          </div>
+          <div class="file-row">
+            <button id="loadConfiguredWorkpiece" type="button">重新加载 config + request</button>
+          </div>
+          <p id="workpieceStatus" class="status-line">正在加载目标工件...</p>
+        </details>
+
+        <details class="section config-section" open>
+          <summary>数据目录（第三流程 visualization）</summary>
+          <p class="status-line">默认跟随项目相对路径 output/trajectory_planning；切换绝对路径可查看 /var/hybird_log/grasp_log 下的历史归档。</p>
+          <div class="file-row">
+            <label><input type="radio" name="vizPathMode" id="vizPathModeRelative" value="relative" checked /> 项目相对路径</label>
+            <label><input type="radio" name="vizPathMode" id="vizPathModeAbsolute" value="absolute" /> 绝对路径</label>
+          </div>
+          <label class="absolute-path-field">
+            <span>父文件夹</span>
+            <input
+              id="vizDirectoryInput"
+              type="text"
+              spellcheck="false"
+              value="output/trajectory_planning"
+            />
+          </label>
+          <div class="file-row">
+            <button id="vizLoadDirectory" type="button">加载</button>
+          </div>
+          <div class="pipeline-pose-list">
+            <div class="pipeline-pose-row"><span>解析后的路径</span><code id="vizResolvedPath">未解析</code></div>
+            <div class="pipeline-pose-row"><span>当前生效目录</span><code id="vizActiveDirectory">未生效</code></div>
+            <div class="pipeline-pose-row"><span>当前任务</span><code id="vizRequestId">未取得</code></div>
+            <div class="pipeline-pose-row"><span>当前代次</span><code id="vizGenerationId">未取得</code></div>
+          </div>
+          <label><input id="vizAutoFollow" type="checkbox" checked /> 自动跟随当前目录并播放</label>
+          <p id="vizStatus" class="status-line">目录待加载</p>
+        </details>
+
+        <details class="section config-section" open>
+          <summary>抓取夹爪预览与固定模型</summary>
+          <p class="status-line">位姿直接使用 manifest 的 grasp_preview，不再叠加退让量；开口原始单位为米，此处显示为毫米。</p>
+          <div class="file-row">
+            <label><input id="vizShowOriginalGripper" type="checkbox" checked /> 显示原始抓取夹爪（橙色）</label>
+          </div>
+          <div class="file-row">
+            <label><input id="vizShowRetreatGripper" type="checkbox" checked /> 显示退让后夹爪（青色）</label>
+          </div>
+          <p id="vizPreviewStatus" class="status-line">等待本轮抓取预览数据</p>
+          <div class="file-row">
+            <label><input id="vizShowInstallationExclusion" type="checkbox" checked /> 显示安装豁免区</label>
+            <!-- 改动十 10.2：本轮体素网格范围。由文档 2.6，球心一旦离开网格即静默漏检，
+                 这是判断"机械臂有没有伸出网格"的唯一直观手段，故默认打开。 -->
+            <label><input id="vizShowWorldGrid" type="checkbox" checked /> 显示体素网格范围</label>
+            <!-- 改动十 10.3：ESDF 测距覆盖的整个体素区域。半透明盒给范围、六面 10mm
+                 格线给格子大小、占据格标红。内部 1193 万格无法逐个绘制（遮挡问题）。
+                 打开时平台实体盒临时让位，以便看到红色的平台占据格。默认关闭。 -->
+            <label><input id="vizShowVoxelRegion" type="checkbox" /> 显示体素区域（占据格标红）</label>
+          </div>
+          <p id="vizModelStatus" class="status-line">等待固定模型初始化</p>
+        </details>
+
+        <details class="section config-section" open>
+          <summary>最新两阶段规划结果</summary>
+          <p class="status-line">从下面的 output 文件夹同时读取阶段1抓取位姿、manifest、两条轨迹和基座系点云，并校验代次、工件代号与 SHA-256。</p>
+          <label class="absolute-path-field">
+            <span>两阶段 output 文件夹（绝对路径）</span>
+            <input
+              id="pipelineOutputPath"
+              type="text"
+              required
+              spellcheck="false"
+              value="/home/vecow/workspace/轨迹规划/grasp_planner_pkg/output"
+            />
+          </label>
+          <div class="pipeline-pose-list">
+            <div class="pipeline-pose-row">
+              <span>原始工件 T_B_O</span>
+              <code id="stageWorkpiecePose">未加载</code>
+            </div>
+            <div class="pipeline-pose-row">
+              <span>生成抓取点 T_B_TCP</span>
+              <code id="stageTcpPose">未加载</code>
+            </div>
+            <div class="pipeline-pose-row">
+              <span>规划法兰 T_B_F</span>
+              <code id="stageFlangePose">未加载</code>
+            </div>
+          </div>
+          <p class="status-line">加载后在场景中绘制 O/TCP/F 三组 XYZ 坐标轴；轴长分别为 100/80/60 mm。</p>
+          <div class="file-row">
+            <button id="loadLatestPipelineOutput" type="button">一键加载最新两阶段 output</button>
+          </div>
+          <p id="pipelineStatus" class="status-line">等待加载最新计划结果</p>
+        </details>
+
+        <details class="section config-section">
+          <summary>点云 基座坐标系 / mm</summary>
+          <div class="field-grid two">
+            <label>
+              <span>点大小</span>
+              <input id="pointSize" type="number" min="1" max="20" step="1" value="4" />
+            </label>
+          </div>
+          <p class="status-line">输入坐标系：机械臂基座坐标系；单位：mm；豁免盒内点强制显示为红色，其余点保留原RGB或显示灰色。</p>
+          <label class="absolute-path-field">
+            <span>点云文件（绝对路径）</span>
+            <input
+              id="pointCloudPath"
+              type="text"
+              required
+              spellcheck="false"
+              value="/home/vecow/workspace/轨迹规划/grasp_planner_pkg/output/trajectory_planning/point_cloud_B.ply"
+            />
+          </label>
+          <textarea id="pointCloudText" class="data-input" spellcheck="false" placeholder="基座坐标系点云，单位mm，例如：100,200,300；PLY请用文件上传"></textarea>
+          <div class="file-row">
+            <input id="pointCloudFile" type="file" accept=".ply,.PLY,.json,.csv,.txt" />
+            <button id="loadPointCloud" type="button">加载点云</button>
+            <button id="loadPointCloudPath" type="button">从绝对路径加载</button>
+            <button id="clearPointCloud" type="button">清空</button>
+          </div>
+          <p id="pointCloudStatus" class="status-line">基座坐标系 / mm / 0 点</p>
+        </details>
+
+        <details class="section config-section">
+          <summary>双轨迹仿真</summary>
+          <div class="field-grid two">
+            <label>
+              <span>速度</span>
+              <input id="trajectorySpeed" type="number" min="0.05" max="5" step="0.05" value="1.00" />
+            </label>
+          </div>
+          <p class="status-line">两个输入必须分别选择同一 generation 的“拍照→抓取”和“抓取→放置” JSON。</p>
+          <div class="trajectory-file-grid">
+            <label class="trajectory-file-card">
+              <span class="trajectory-file-title">1. 拍照 → 抓取</span>
+              <span class="trajectory-path-label">绝对路径</span>
+              <input
+                id="photoToGraspTrajectoryPath"
+                type="text"
+                required
+                spellcheck="false"
+                value="/home/vecow/workspace/轨迹规划/grasp_planner_pkg/output/trajectory_planning/joint_trajectory_photo_to_grasp.json"
+              />
+              <input id="photoToGraspTrajectoryFile" type="file" accept=".json" />
+              <small id="photoToGraspTrajectorySelection">未选择文件</small>
+            </label>
+            <label class="trajectory-file-card">
+              <span class="trajectory-file-title">2. 抓取 → 放置</span>
+              <span class="trajectory-path-label">绝对路径</span>
+              <input
+                id="graspToPlaceTrajectoryPath"
+                type="text"
+                required
+                spellcheck="false"
+                value="/home/vecow/workspace/轨迹规划/grasp_planner_pkg/output/trajectory_planning/joint_trajectory_grasp_to_place.json"
+              />
+              <input id="graspToPlaceTrajectoryFile" type="file" accept=".json" />
+              <small id="graspToPlaceTrajectorySelection">未选择文件</small>
+            </label>
+          </div>
+          <div class="file-row">
+            <button id="loadTrajectoryPaths" type="button">从绝对路径加载两条轨迹</button>
+            <button id="loadTrajectory" type="button">加载选择的两条轨迹</button>
+            <button id="loadLatestTrajectories" type="button">从 output 路径加载 manifest 轨迹</button>
+          </div>
+          <div class="button-row">
+            <button id="playTrajectory" type="button">执行</button>
+            <button id="pauseTrajectory" type="button">暂停</button>
+            <button id="stopTrajectory" type="button">停止</button>
+          </div>
+          <p id="trajectoryStatus" class="status-line">等待加载拍照→抓取和抓取→放置两条轨迹</p>
+        </details>
+
+        <section class="section metrics">
+          <div class="metric">
+            <span>三角面</span>
+            <strong id="triangleCount">0</strong>
+          </div>
+          <div class="metric">
+            <span>法兰 XYZ mm</span>
+            <strong id="tcpPosition">0, 0, 0</strong>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <noscript>需要启用 JavaScript 才能显示 AUBO-i12H 模型。</noscript>
+    <script src="./src/app.js?v=20260919-restore-tool-box-v16"></script>
+  </body>
+</html>

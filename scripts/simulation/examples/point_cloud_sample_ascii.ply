@@ -1,0 +1,14 @@
+ply
+format ascii 1.0
+comment point cloud in robot base frame {B}, millimeters
+element vertex 6
+property float x
+property float y
+property float z
+end_header
+-250 350 180
+-180 370 220
+-80 340 190
+20 360 260
+120 330 210
+200 380 230

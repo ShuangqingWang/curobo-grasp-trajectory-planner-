@@ -1,0 +1,15 @@
+{
+  "curobo_python": "/home/vecow/miniconda3/envs/pick-gpu/bin/python",
+  "app": {
+    "$include": "base/app.json"
+  },
+  "camera": {
+    "$include": "base/camera.json"
+  },
+  "device": {
+    "$include": "base/device/aubo.json"
+  },
+  "pipeline": {
+    "$include": "base/pipeline/pipeline.json"
+  }
+}

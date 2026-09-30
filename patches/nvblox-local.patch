@@ -1,0 +1,38 @@
+diff --git a/nvblox_torch/nvblox_torch/mesh.py b/nvblox_torch/nvblox_torch/mesh.py
+index a954c5f..7f51487 100644
+--- a/nvblox_torch/nvblox_torch/mesh.py
++++ b/nvblox_torch/nvblox_torch/mesh.py
+@@ -8,14 +8,24 @@
+ # without an express license agreement from NVIDIA CORPORATION or
+ # its affiliates is strictly prohibited.
+ #
++from __future__ import annotations
++
+ import torch
+-import open3d as o3d
+ from typing import Any
+ from abc import ABC, abstractmethod
+ 
+ from nvblox_torch.lib.utils import get_nvblox_torch_class
+ 
+ 
++def _open3d():
++    """仅在网格可视化/保存时导入 Open3D，Mapper/ESDF 本身不依赖它。"""
++    try:
++        import open3d
++    except ModuleNotFoundError as exc:
++        raise RuntimeError("调用网格可视化需要安装 open3d") from exc
++    return open3d
++
++
+ class Mesh(ABC):
+     """Abstract Mesh class for PyTorch."""
+ 
+@@ -86,6 +96,7 @@ class ColorMesh(Mesh):
+             An Open3D mesh.
+ 
+         """
++        o3d = _open3d()
+         mesh_o3d = o3d.geometry.TriangleMesh()
+         # To tensor
+         vertices = self.vertices()

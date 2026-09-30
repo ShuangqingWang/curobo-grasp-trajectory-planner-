@@ -1,0 +1,15 @@
+{
+  "grasp": [
+    "load_request",
+    "load_grasp_labels",
+    "compose_grasp_poses",
+    "write_grasp_output"
+  ],
+  "trajectory": [
+    "load_grasp_candidates",
+    "fuse_base_cloud",
+    "build_collision_world",
+    "plan_full_cycle",
+    "write_trajectory_output"
+  ]
+}

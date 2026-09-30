@@ -1,0 +1,9 @@
+[submodule "third_party/curobo"]
+	path = third_party/curobo
+	url = https://github.com/NVlabs/curobo.git
+[submodule "third_party/nvblox"]
+	path = third_party/nvblox
+	url = https://github.com/nvidia-isaac/nvblox.git
+[submodule "third_party/nvblox_torch"]
+	path = third_party/nvblox_torch
+	url = https://github.com/NVlabs/nvblox_torch.git

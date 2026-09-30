@@ -1,0 +1,20 @@
+ply
+format ascii 1.0
+comment point cloud in robot base frame {B}, millimeters, with RGB colors
+element vertex 9
+property float x
+property float y
+property float z
+property uchar red
+property uchar green
+property uchar blue
+end_header
+120 360 210 255 40 40
+180 390 240 40 220 70
+240 420 270 50 90 255
+300 450 300 255 220 40
+360 480 330 255 80 210
+420 510 360 30 220 220
+480 540 390 255 130 30
+540 570 420 180 90 255
+600 600 450 245 245 245
