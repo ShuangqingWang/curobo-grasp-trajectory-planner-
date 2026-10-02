@@ -28,10 +28,27 @@ namespace openmind::trajectory_plan
 /**
  * @brief 碰撞世界下发参数。
  */
+/**
+ * @brief 一路全分辨率深度图的下发描述（文件 + 相机参数）。
+ */
+struct CuroboDepthImage
+{
+    std::string path;            ///< 深度文件路径（float32，行主序，mm）
+    int32_t width = 0;           ///< 宽，pixel
+    int32_t height = 0;          ///< 高，pixel
+    double fx = 0.0;             ///< 焦距 x，pixel
+    double fy = 0.0;             ///< 焦距 y，pixel
+    double cx = 0.0;             ///< 主点 x，pixel
+    double cy = 0.0;             ///< 主点 y，pixel
+    Eigen::Matrix4d t_base_camera = Eigen::Matrix4d::Identity(); ///< 相机 → 基座（mm）
+};
+
 struct CuroboWorldRequest
 {
-    std::string cloud_path;      ///< 点云二进制文件绝对路径（float32 xyz，mm）
-    int64_t point_count = 0;     ///< 点数
+    /// 三路全分辨率深度图（主/左/右）。GPU 服务在显存里反投影全部像素（文档 2.5.3）。
+    std::vector<CuroboDepthImage> depth_images;
+    double depth_min_mm = 150.0;  ///< 有效深度下界
+    double depth_max_mm = 2500.0; ///< 有效深度上界
     double voxel_size_mm = 3.0;  ///< ESDF 体素边长（mm，文档 2.5.6）
     /// 激活距离（mm，文档 2.5.9）。须与 GPU 子进程启动参数一致，服务端核对。
     double collision_activation_mm = 3.0;
@@ -46,6 +63,7 @@ struct CuroboWorldRequest
  */
 struct CuroboPingInfo
 {
+    int64_t pid = 0;                    ///< 应答的 GPU 服务进程 pid（核对是否为本进程拉起的子进程）
     std::string device;                 ///< GPU 名称
     int64_t body_spheres = 0;           ///< 本体碰撞球数
     int64_t end_effector_spheres = 0;   ///< 末端碰撞球数
@@ -158,7 +176,13 @@ class CuroboPlanClient
                    std::string& error) const;
 
     /**
-     * @brief 把基座系点云写成服务端要的二进制格式（float32 xyz，mm）。
+     * @brief 把一路深度图写成服务端要的二进制格式（float32 行主序，mm）。
+     */
+    static bool WriteDepthBinary(const std::vector<float>& depth_mm, const std::string& path,
+                                 std::string& error);
+
+    /**
+     * @brief 把基座系点云写成二进制格式（float32 xyz，mm）。
      */
     static bool WriteCloudBinary(const std::vector<Eigen::Vector3d>& cloud,
                                  const std::string& path,

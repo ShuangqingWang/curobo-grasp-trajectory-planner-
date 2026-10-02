@@ -1,0 +1,361 @@
+ .clang-format                                      |     80 [32m+[m
+ .gitignore                                         |     51 [32m+[m
+ .gitmodules                                        |      9 [32m+[m
+ ...21\275\344\273\244\346\226\207\346\241\243.txt" |    331 [32m+[m
+ CMakeLists.txt                                     |    158 [32m+[m
+ README.md                                          |    700 [32m+[m
+ config/base/app.json                               |    157 [32m+[m
+ config/base/camera.json                            |     51 [32m+[m
+ config/base/device/aubo.json                       |   3225 [32m+[m
+ config/base/pipeline/flow/grasp.yaml               |     29 [32m+[m
+ config/base/pipeline/flow/trajectory.yaml          |     93 [32m+[m
+ config/base/pipeline/pipeline.json                 |     15 [32m+[m
+ config/grasp_planner.json                          |     15 [32m+[m
+ ...200\273\350\276\221\345\210\206\346\236\220.md" |   1968 [32m+[m
+ ...274\230\345\214\226\346\226\271\346\241\210.md" |   1278 [32m+[m
+ ...241\256\345\214\226\346\226\271\346\241\210.md" |    165 [32m+[m
+ ...274\230\345\214\226\346\226\271\346\241\210.md" |   1572 [32m+[m
+ ...222\236\347\220\203\346\226\271\346\241\210.md" |    216 [32m+[m
+ ...214\203\345\233\264\346\226\271\346\241\210.md" |    308 [32m+[m
+ .../algorithm/collision_world_build_algorithm.h    |     61 [32m+[m
+ .../trajectory_plan/algorithm/curobo_plan_client.h |    178 [32m+[m
+ .../algorithm/depth_cloud_fuse_algorithm.h         |     97 [32m+[m
+ .../algorithm/grasp_label_load_algorithm.h         |     67 [32m+[m
+ .../algorithm/grasp_output_format_algorithm.h      |     72 [32m+[m
+ .../algorithm/grasp_pose_compose_algorithm.h       |     60 [32m+[m
+ include/trajectory_plan/algorithm/grasp_result.h   |     52 [32m+[m
+ .../trajectory_plan/algorithm/joint_trajectory.h   |     67 [32m+[m
+ include/trajectory_plan/algorithm/pose.h           |     92 [32m+[m
+ .../algorithm/robot_kinematics_interface.h         |     73 [32m+[m
+ .../trajectory_collision_check_algorithm.h         |    119 [32m+[m
+ .../algorithm/trajectory_output_format_algorithm.h |    131 [32m+[m
+ .../algorithm/trajectory_quality_grade_algorithm.h |    161 [32m+[m
+ include/trajectory_plan/camera/camera_manager.h    |     70 [32m+[m
+ include/trajectory_plan/camera/tiff_depth_camera.h |     46 [32m+[m
+ include/trajectory_plan/config/config_service.h    |     78 [32m+[m
+ include/trajectory_plan/config/config_types.h      |     78 [32m+[m
+ include/trajectory_plan/device/aubo_i12h_model.h   |    106 [32m+[m
+ include/trajectory_plan/device/device_manager.h    |     68 [32m+[m
+ .../trajectory_plan/openmind_trajectory_plan_app.h |    117 [32m+[m
+ include/trajectory_plan/pipeline/pipeline.h        |    100 [32m+[m
+ .../trajectory_plan/pipeline/pipeline_context.h    |    148 [32m+[m
+ include/trajectory_plan/pipeline/stage_interface.h |    135 [32m+[m
+ include/trajectory_plan/pipeline/stage_registry.h  |     84 [32m+[m
+ include/trajectory_plan/service/output_publisher.h |    117 [32m+[m
+ include/trajectory_plan/service/response_builder.h |     96 [32m+[m
+ include/trajectory_plan/service/session_archive.h  |    154 [32m+[m
+ include/trajectory_plan/service/tcp_server.h       |    157 [32m+[m
+ include/trajectory_plan/service/trigger_router.h   |    110 [32m+[m
+ include/trajectory_plan/tools/interrupt.h          |     34 [32m+[m
+ include/trajectory_plan/tools/json_util.h          |    103 [32m+[m
+ include/trajectory_plan/tools/log.h                |    123 [32m+[m
+ include/trajectory_plan/tools/logger_init.hpp      |     26 [32m+[m
+ input/README.txt                                   |     23 [32m+[m
+ model/aubo_i10_curobo.yml                          |   2232 [32m+[m
+ model/aubo_i12h_curobo.yml                         |    826 [32m+[m
+ model/aubo_i12h_kinematics.yaml                    |     23 [32m+[m
+ patches/nvblox-local.patch                         |     38 [32m+[m
+ scripts/build_tar.sh                               |     65 [32m+[m
+ scripts/simulation/README.md                       |    156 [32m+[m
+ scripts/simulation/aubo_description/CHANGELOG.rst  |      9 [32m+[m
+ scripts/simulation/aubo_description/CMakeLists.txt |     11 [32m+[m
+ scripts/simulation/aubo_description/README.md      |      9 [32m+[m
+ .../config/joint_names_aubo_e3.yaml                |      1 [32m+[m
+ .../config/joint_names_aubo_e5.yaml                |      1 [32m+[m
+ .../config/joint_names_aubo_i5.yaml                |      1 [32m+[m
+ .../aubo_description/launch/display.launch         |     26 [32m+[m
+ .../aubo_description/launch/gazebo.launch          |     20 [32m+[m
+ .../meshes/aubo_e3/collision/base_link.STL         |    Bin [31m0[m -> [32m456984[m bytes
+ .../meshes/aubo_e3/collision/foreArm_Link.STL      |    Bin [31m0[m -> [32m826884[m bytes
+ .../meshes/aubo_e3/collision/shoulder_Link.STL     |    Bin [31m0[m -> [32m736384[m bytes
+ .../meshes/aubo_e3/collision/upperArm_Link.STL     |    Bin [31m0[m -> [32m1724484[m bytes
+ .../meshes/aubo_e3/collision/wrist1_Link.STL       |    Bin [31m0[m -> [32m1347684[m bytes
+ .../meshes/aubo_e3/collision/wrist2_Link.STL       |    Bin [31m0[m -> [32m1347684[m bytes
+ .../meshes/aubo_e3/collision/wrist3_Link.STL       |    Bin [31m0[m -> [32m91984[m bytes
+ .../meshes/aubo_e3/visual/base_link.DAE            |  68198 [32m++[m
+ .../meshes/aubo_e3/visual/foreArm_Link.DAE         | 100755 [32m+++[m
+ .../meshes/aubo_e3/visual/shoulder_Link.DAE        |  74745 [32m+++[m
+ .../meshes/aubo_e3/visual/upperArm_Link.DAE        | 217914 [32m+++++++[m
+ .../meshes/aubo_e3/visual/wrist1_Link.DAE          | 165946 [32m+++++[m
+ .../meshes/aubo_e3/visual/wrist2_Link.DAE          | 165941 [32m+++++[m
+ .../meshes/aubo_e3/visual/wrist3_Link.DAE          |  16404 [32m+[m
+ .../meshes/aubo_e5/collision/base_link.STL         |    Bin [31m0[m -> [32m222484[m bytes
+ .../meshes/aubo_e5/collision/flange.stl            |   5091 [32m+[m
+ .../meshes/aubo_e5/collision/foreArm_Link.STL      |    Bin [31m0[m -> [32m1693584[m bytes
+ .../meshes/aubo_e5/collision/pedestal.STL          |    Bin [31m0[m -> [32m3604384[m bytes
+ .../meshes/aubo_e5/collision/shoulder_Link.STL     |    Bin [31m0[m -> [32m1919484[m bytes
+ .../meshes/aubo_e5/collision/upperArm_Link.STL     |    Bin [31m0[m -> [32m5391784[m bytes
+ .../meshes/aubo_e5/collision/wrist1_Link.STL       |    Bin [31m0[m -> [32m1291084[m bytes
+ .../meshes/aubo_e5/collision/wrist2_Link.STL       |    Bin [31m0[m -> [32m1291084[m bytes
+ .../meshes/aubo_e5/collision/wrist3_Link.STL       |    Bin [31m0[m -> [32m865084[m bytes
+ .../meshes/aubo_e5/visual/base_link.DAE            |  22905 [32m+[m
+ .../meshes/aubo_e5/visual/foreArm_Link.DAE         | 150988 [32m+++++[m
+ .../meshes/aubo_e5/visual/shoulder_Link.DAE        | 217245 [32m+++++++[m
+ .../meshes/aubo_e5/visual/upperArm_Link.DAE        | 597975 [32m++++++++++++++++++[m
+ .../meshes/aubo_e5/visual/wrist1_Link.DAE          | 114398 [32m++++[m
+ .../meshes/aubo_e5/visual/wrist2_Link.DAE          | 114246 [32m++++[m
+ .../meshes/aubo_e5/visual/wrist3_Link.DAE          |  58474 [32m++[m
+ .../aubo_description/meshes/aubo_i10/base_link.DAE |  21747 [32m+[m
+ .../aubo_description/meshes/aubo_i10/base_link.STL |    Bin [31m0[m -> [32m124684[m bytes
+ .../meshes/aubo_i10/foreArm_Link.DAE               | 112574 [32m++++[m
+ .../meshes/aubo_i10/foreArm_Link.STL               |    Bin [31m0[m -> [32m1211184[m bytes
+ .../meshes/aubo_i10/shoulder_Link.DAE              |  46127 [32m++[m
+ .../meshes/aubo_i10/shoulder_Link.STL              |    Bin [31m0[m -> [32m479584[m bytes
+ .../meshes/aubo_i10/upperArm_Link.DAE              | 104458 [32m+++[m
+ .../meshes/aubo_i10/upperArm_Link.STL              |    Bin [31m0[m -> [32m1085934[m bytes
+ .../meshes/aubo_i10/wrist1_Link.DAE                | 101020 [32m+++[m
+ .../meshes/aubo_i10/wrist1_Link.STL                |    Bin [31m0[m -> [32m1072034[m bytes
+ .../meshes/aubo_i10/wrist2_Link.DAE                |  70026 [32m++[m
+ .../meshes/aubo_i10/wrist2_Link.STL                |    Bin [31m0[m -> [32m819184[m bytes
+ .../meshes/aubo_i10/wrist3_Link.DAE                |  15236 [32m+[m
+ .../meshes/aubo_i10/wrist3_Link.STL                |    Bin [31m0[m -> [32m87084[m bytes
+ .../aubo_description/meshes/aubo_i12h/SOURCE.md    |     12 [32m+[m
+ .../meshes/aubo_i12h/base_link.STL                 |    Bin [31m0[m -> [32m470184[m bytes
+ .../meshes/aubo_i12h/foreArm_Link.STL              |    Bin [31m0[m -> [32m988884[m bytes
+ .../meshes/aubo_i12h/shoulder_Link.STL             |    Bin [31m0[m -> [32m1164784[m bytes
+ .../meshes/aubo_i12h/upperArm_Link.STL             |    Bin [31m0[m -> [32m3998034[m bytes
+ .../meshes/aubo_i12h/wrist1_Link.STL               |    Bin [31m0[m -> [32m611184[m bytes
+ .../meshes/aubo_i12h/wrist2_Link.STL               |    Bin [31m0[m -> [32m611184[m bytes
+ .../meshes/aubo_i12h/wrist3_Link.STL               |    Bin [31m0[m -> [32m391284[m bytes
+ .../meshes/aubo_i16/collision/base_Link.STL        |    Bin [31m0[m -> [32m411134[m bytes
+ .../meshes/aubo_i16/collision/foreArm_Link.STL     |    Bin [31m0[m -> [32m1239334[m bytes
+ .../meshes/aubo_i16/collision/shoulder_Link.STL    |    Bin [31m0[m -> [32m478184[m bytes
+ .../meshes/aubo_i16/collision/upperArm_Link.STL    |    Bin [31m0[m -> [32m1084184[m bytes
+ .../meshes/aubo_i16/collision/wrist1_Link.STL      |    Bin [31m0[m -> [32m1050584[m bytes
+ .../meshes/aubo_i16/collision/wrist2_Link.STL      |    Bin [31m0[m -> [32m1049384[m bytes
+ .../meshes/aubo_i16/collision/wrist3_Link.STL      |    Bin [31m0[m -> [32m542034[m bytes
+ .../meshes/aubo_i16/visual/base_Link.DAE           |  41910 [32m++[m
+ .../meshes/aubo_i16/visual/foreArm_Link.DAE        | 114993 [32m++++[m
+ .../meshes/aubo_i16/visual/shoulder_Link.DAE       |  45896 [32m++[m
+ .../meshes/aubo_i16/visual/upperArm_Link.DAE       | 103898 [32m+++[m
+ .../meshes/aubo_i16/visual/wrist1_Link.DAE         |  96861 [32m+++[m
+ .../meshes/aubo_i16/visual/wrist2_Link.DAE         |  96753 [32m+++[m
+ .../meshes/aubo_i16/visual/wrist3_Link.DAE         |  61486 [32m++[m
+ .../meshes/aubo_i20/collision/link0.STL            |    Bin [31m0[m -> [32m14884[m bytes
+ .../meshes/aubo_i20/collision/link1.STL            |    Bin [31m0[m -> [32m16984[m bytes
+ .../meshes/aubo_i20/collision/link2.STL            |    Bin [31m0[m -> [32m19284[m bytes
+ .../meshes/aubo_i20/collision/link3.STL            |    Bin [31m0[m -> [32m17384[m bytes
+ .../meshes/aubo_i20/collision/link4.STL            |    Bin [31m0[m -> [32m16184[m bytes
+ .../meshes/aubo_i20/collision/link5.STL            |    Bin [31m0[m -> [32m16184[m bytes
+ .../meshes/aubo_i20/collision/link6.STL            |    Bin [31m0[m -> [32m7684[m bytes
+ .../meshes/aubo_i20/visual/link0.3ds               |    Bin [31m0[m -> [32m167259[m bytes
+ .../meshes/aubo_i20/visual/link0.DAE               |  17434 [32m+[m
+ .../meshes/aubo_i20/visual/link1.3ds               |    Bin [31m0[m -> [32m423249[m bytes
+ .../meshes/aubo_i20/visual/link1.DAE               |  74191 [32m+++[m
+ .../meshes/aubo_i20/visual/link2.3ds               |    Bin [31m0[m -> [32m835567[m bytes
+ .../meshes/aubo_i20/visual/link2.DAE               | 109092 [32m++++[m
+ .../meshes/aubo_i20/visual/link3.3ds               |    Bin [31m0[m -> [32m511387[m bytes
+ .../meshes/aubo_i20/visual/link3.DAE               |  73642 [32m+++[m
+ .../meshes/aubo_i20/visual/link4.3ds               |    Bin [31m0[m -> [32m299977[m bytes
+ .../meshes/aubo_i20/visual/link4.DAE               |  52384 [32m++[m
+ .../meshes/aubo_i20/visual/link5.3ds               |    Bin [31m0[m -> [32m299909[m bytes
+ .../meshes/aubo_i20/visual/link5.DAE               |  52348 [32m++[m
+ .../meshes/aubo_i20/visual/link6.3ds               |    Bin [31m0[m -> [32m146947[m bytes
+ .../meshes/aubo_i20/visual/link6.DAE               |  13731 [32m+[m
+ .../meshes/aubo_i3/collision/base_link.STL         |    Bin [31m0[m -> [32m456984[m bytes
+ .../meshes/aubo_i3/collision/foreArm_Link.STL      |    Bin [31m0[m -> [32m826884[m bytes
+ .../meshes/aubo_i3/collision/shoulder_Link.STL     |    Bin [31m0[m -> [32m736384[m bytes
+ .../meshes/aubo_i3/collision/upperArm_Link.STL     |    Bin [31m0[m -> [32m1724484[m bytes
+ .../meshes/aubo_i3/collision/wrist1_Link.STL       |    Bin [31m0[m -> [32m1347684[m bytes
+ .../meshes/aubo_i3/collision/wrist2_Link.STL       |    Bin [31m0[m -> [32m1347684[m bytes
+ .../meshes/aubo_i3/collision/wrist3_Link.STL       |    Bin [31m0[m -> [32m91984[m bytes
+ .../meshes/aubo_i3/visual/base_link.DAE            |  68198 [32m++[m
+ .../meshes/aubo_i3/visual/foreArm_Link.DAE         | 100755 [32m+++[m
+ .../meshes/aubo_i3/visual/shoulder_Link.DAE        |  74745 [32m+++[m
+ .../meshes/aubo_i3/visual/upperArm_Link.DAE        | 217914 [32m+++++++[m
+ .../meshes/aubo_i3/visual/wrist1_Link.DAE          | 165946 [32m+++++[m
+ .../meshes/aubo_i3/visual/wrist2_Link.DAE          | 165941 [32m+++++[m
+ .../meshes/aubo_i3/visual/wrist3_Link.DAE          |  16404 [32m+[m
+ .../meshes/aubo_i5/collision/base_link.STL         |    Bin [31m0[m -> [32m20484[m bytes
+ .../meshes/aubo_i5/collision/foreArm_Link.STL      |    Bin [31m0[m -> [32m1140884[m bytes
+ .../meshes/aubo_i5/collision/pedestal.STL          |    Bin [31m0[m -> [32m596584[m bytes
+ .../meshes/aubo_i5/collision/shoulder_Link.STL     |    Bin [31m0[m -> [32m864684[m bytes
+ .../meshes/aubo_i5/collision/upperArm_Link.STL     |    Bin [31m0[m -> [32m1892484[m bytes
+ .../meshes/aubo_i5/collision/wrist1_Link.STL       |    Bin [31m0[m -> [32m979084[m bytes
+ .../meshes/aubo_i5/collision/wrist2_Link.STL       |    Bin [31m0[m -> [32m979084[m bytes
+ .../meshes/aubo_i5/collision/wrist3_Link.STL       |    Bin [31m0[m -> [32m649584[m bytes
+ .../meshes/aubo_i5/visual/base_link.DAE            |   2741 [32m+[m
+ .../meshes/aubo_i5/visual/foreArm_Link.DAE         | 104421 [32m+++[m
+ .../meshes/aubo_i5/visual/shoulder_Link.DAE        |  65053 [32m++[m
+ .../meshes/aubo_i5/visual/upperArm_Link.DAE        | 169660 [32m+++++[m
+ .../meshes/aubo_i5/visual/wrist1_Link.DAE          |  85832 [32m+++[m
+ .../meshes/aubo_i5/visual/wrist2_Link.DAE          |  80753 [32m+++[m
+ .../meshes/aubo_i5/visual/wrist3_Link.DAE          |  68028 [32m++[m
+ .../aubo_description/meshes/aubo_i5l/arm_mount.stl |    Bin [31m0[m -> [32m818284[m bytes
+ .../meshes/aubo_i5l/arm_mount2.stl                 |    Bin [31m0[m -> [32m818284[m bytes
+ .../meshes/aubo_i5l/base_frame.stl                 |    Bin [31m0[m -> [32m3927584[m bytes
+ .../aubo_description/meshes/aubo_i5l/base_link.STL |    Bin [31m0[m -> [32m188684[m bytes
+ .../aubo_description/meshes/aubo_i5l/f1_Link.STL   |    Bin [31m0[m -> [32m1735684[m bytes
+ .../meshes/aubo_i5l/foreArm_Link.STL               |    Bin [31m0[m -> [32m1957284[m bytes
+ .../meshes/aubo_i5l/foreArm_Link3.STL              |    Bin [31m0[m -> [32m629584[m bytes
+ .../aubo_description/meshes/aubo_i5l/gripper.stl   |    Bin [31m0[m -> [32m666084[m bytes
+ .../aubo_description/meshes/aubo_i5l/s_Link.STL    |    Bin [31m0[m -> [32m867884[m bytes
+ .../meshes/aubo_i5l/shoulder_Link.STL              |    Bin [31m0[m -> [32m327384[m bytes
+ .../meshes/aubo_i5l/shoulder_Link2.stl             |    Bin [31m0[m -> [32m1370184[m bytes
+ .../aubo_description/meshes/aubo_i5l/u_Link.STL    |    Bin [31m0[m -> [32m745384[m bytes
+ .../meshes/aubo_i5l/upperArm_Link.STL              |    Bin [31m0[m -> [32m1640584[m bytes
+ .../aubo_description/meshes/aubo_i5l/w1_Link.STL   |    Bin [31m0[m -> [32m745384[m bytes
+ .../aubo_description/meshes/aubo_i5l/w2_Link.STL   |    Bin [31m0[m -> [32m745384[m bytes
+ .../meshes/aubo_i5l/wrist1_Link.STL                |    Bin [31m0[m -> [32m368684[m bytes
+ .../meshes/aubo_i5l/wrist2_Link.STL                |    Bin [31m0[m -> [32m368684[m bytes
+ .../meshes/aubo_i5l/wrist3_Link.STL                |    Bin [31m0[m -> [32m511384[m bytes
+ .../meshes/aubo_i7/collision/link0.STL             |    Bin [31m0[m -> [32m14184[m bytes
+ .../meshes/aubo_i7/collision/link1.STL             |    Bin [31m0[m -> [32m23384[m bytes
+ .../meshes/aubo_i7/collision/link2.STL             |    Bin [31m0[m -> [32m19484[m bytes
+ .../meshes/aubo_i7/collision/link3.STL             |    Bin [31m0[m -> [32m18584[m bytes
+ .../meshes/aubo_i7/collision/link4.STL             |    Bin [31m0[m -> [32m17784[m bytes
+ .../meshes/aubo_i7/collision/link5.STL             |    Bin [31m0[m -> [32m17784[m bytes
+ .../meshes/aubo_i7/collision/link6.STL             |    Bin [31m0[m -> [32m13984[m bytes
+ .../meshes/aubo_i7/visual/link0.3ds                |    Bin [31m0[m -> [32m17911[m bytes
+ .../meshes/aubo_i7/visual/link0.DAE                |   1607 [32m+[m
+ .../meshes/aubo_i7/visual/link1.3ds                |    Bin [31m0[m -> [32m61081[m bytes
+ .../meshes/aubo_i7/visual/link1.DAE                |   5821 [32m+[m
+ .../meshes/aubo_i7/visual/link2.3ds                |    Bin [31m0[m -> [32m74497[m bytes
+ .../meshes/aubo_i7/visual/link2.DAE                |   7102 [32m+[m
+ .../meshes/aubo_i7/visual/link3.3ds                |    Bin [31m0[m -> [32m81977[m bytes
+ .../meshes/aubo_i7/visual/link3.DAE                |   8913 [32m+[m
+ .../meshes/aubo_i7/visual/link4.3ds                |    Bin [31m0[m -> [32m58045[m bytes
+ .../meshes/aubo_i7/visual/link4.DAE                |   5541 [32m+[m
+ .../meshes/aubo_i7/visual/link5.3ds                |    Bin [31m0[m -> [32m58045[m bytes
+ .../meshes/aubo_i7/visual/link5.DAE                |   5541 [32m+[m
+ .../meshes/aubo_i7/visual/link6.3ds                |    Bin [31m0[m -> [32m83527[m bytes
+ .../meshes/aubo_i7/visual/link6.DAE                |   7379 [32m+[m
+ .../meshes/aubo_iS20/collision/link0.STL           |    Bin [31m0[m -> [32m59384[m bytes
+ .../meshes/aubo_iS20/collision/link1.STL           |    Bin [31m0[m -> [32m71184[m bytes
+ .../meshes/aubo_iS20/collision/link2.STL           |    Bin [31m0[m -> [32m80284[m bytes
+ .../meshes/aubo_iS20/collision/link3.STL           |    Bin [31m0[m -> [32m61684[m bytes
+ .../meshes/aubo_iS20/collision/link4.STL           |    Bin [31m0[m -> [32m70184[m bytes
+ .../meshes/aubo_iS20/collision/link5.STL           |    Bin [31m0[m -> [32m70184[m bytes
+ .../meshes/aubo_iS20/collision/link6.STL           |    Bin [31m0[m -> [32m103784[m bytes
+ .../meshes/aubo_iS20/visual/link0.3ds              |    Bin [31m0[m -> [32m83893[m bytes
+ .../meshes/aubo_iS20/visual/link0.DAE              |   9099 [32m+[m
+ .../meshes/aubo_iS20/visual/link1.3ds              |    Bin [31m0[m -> [32m53749[m bytes
+ .../meshes/aubo_iS20/visual/link1.DAE              |   7069 [32m+[m
+ .../meshes/aubo_iS20/visual/link2.3ds              |    Bin [31m0[m -> [32m99033[m bytes
+ .../meshes/aubo_iS20/visual/link2.DAE              |   8254 [32m+[m
+ .../meshes/aubo_iS20/visual/link3.3ds              |    Bin [31m0[m -> [32m147203[m bytes
+ .../meshes/aubo_iS20/visual/link3.DAE              |  17893 [32m+[m
+ .../meshes/aubo_iS20/visual/link4.3ds              |    Bin [31m0[m -> [32m54361[m bytes
+ .../meshes/aubo_iS20/visual/link4.DAE              |   6916 [32m+[m
+ .../meshes/aubo_iS20/visual/link5.3ds              |    Bin [31m0[m -> [32m54361[m bytes
+ .../meshes/aubo_iS20/visual/link5.DAE              |   6952 [32m+[m
+ .../meshes/aubo_iS20/visual/link6.3ds              |    Bin [31m0[m -> [32m103207[m bytes
+ .../meshes/aubo_iS20/visual/link6.DAE              |   8951 [32m+[m
+ .../meshes/aubo_iS7/collision/link0.STL            |    Bin [31m0[m -> [32m14184[m bytes
+ .../meshes/aubo_iS7/collision/link1.STL            |    Bin [31m0[m -> [32m23384[m bytes
+ .../meshes/aubo_iS7/collision/link2.STL            |    Bin [31m0[m -> [32m52284[m bytes
+ .../meshes/aubo_iS7/collision/link3.STL            |    Bin [31m0[m -> [32m18184[m bytes
+ .../meshes/aubo_iS7/collision/link4.STL            |    Bin [31m0[m -> [32m17784[m bytes
+ .../meshes/aubo_iS7/collision/link5.STL            |    Bin [31m0[m -> [32m17784[m bytes
+ .../meshes/aubo_iS7/collision/link6.STL            |    Bin [31m0[m -> [32m13984[m bytes
+ .../meshes/aubo_iS7/visual/link0.3ds               |    Bin [31m0[m -> [32m83315[m bytes
+ .../meshes/aubo_iS7/visual/link0.DAE               |  13074 [32m+[m
+ .../meshes/aubo_iS7/visual/link1.3ds               |    Bin [31m0[m -> [32m53993[m bytes
+ .../meshes/aubo_iS7/visual/link1.DAE               |   8499 [32m+[m
+ .../meshes/aubo_iS7/visual/link2.3ds               |    Bin [31m0[m -> [32m84033[m bytes
+ .../meshes/aubo_iS7/visual/link2.DAE               |  13743 [32m+[m
+ .../meshes/aubo_iS7/visual/link3.3ds               |    Bin [31m0[m -> [32m220359[m bytes
+ .../meshes/aubo_iS7/visual/link3.DAE               |   8837 [32m+[m
+ .../meshes/aubo_iS7/visual/link4.3ds               |    Bin [31m0[m -> [32m48031[m bytes
+ .../meshes/aubo_iS7/visual/link4.DAE               |   7535 [32m+[m
+ .../meshes/aubo_iS7/visual/link5.3ds               |    Bin [31m0[m -> [32m47825[m bytes
+ .../meshes/aubo_iS7/visual/link5.DAE               |   7535 [32m+[m
+ .../meshes/aubo_iS7/visual/link6.3ds               |    Bin [31m0[m -> [32m74959[m bytes
+ .../meshes/aubo_iS7/visual/link6.DAE               |  11160 [32m+[m
+ scripts/simulation/aubo_description/package.xml    |     19 [32m+[m
+ .../aubo_description/resources/DH model.jpg        |    Bin [31m0[m -> [32m72938[m bytes
+ .../aubo_description/resources/ip_set_up.jpg       |    Bin [31m0[m -> [32m32379[m bytes
+ .../zero position and rotate direction.jpg         |    Bin [31m0[m -> [32m10659[m bytes
+ .../aubo_description/urdf/aubo.gazebo.xacro        |     74 [32m+[m
+ .../aubo_description/urdf/aubo.transmission.xacro  |     68 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_e3.urdf  |    220 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_e5.urdf  |    220 [32m+[m
+ .../aubo_description/urdf/aubo_e5.urdf.xacro       |    229 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_e5.xacro |    575 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_i10.urdf |    248 [32m+[m
+ .../aubo_description/urdf/aubo_i12h.urdf           |    112 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_i16.urdf |    223 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_i20.urdf |    227 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_i3.urdf  |    220 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_i5.urdf  |    220 [32m+[m
+ .../aubo_description/urdf/aubo_i5.urdf.xacro       |    229 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_i5L.urdf |    348 [32m+[m
+ .../aubo_description/urdf/aubo_i5_robot.urdf.xacro |     23 [32m+[m
+ .../aubo_description/urdf/aubo_i5l.urdf.xacro      |    356 [32m+[m
+ .../urdf/aubo_i5l_robot.urdf.xacro                 |    140 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_i7.urdf  |    227 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_i7H.urdf |    227 [32m+[m
+ .../aubo_description/urdf/aubo_iS20.urdf           |    227 [32m+[m
+ .../simulation/aubo_description/urdf/aubo_iS7.urdf |    228 [32m+[m
+ .../aubo_description/urdf/common.gazebo.xacro      |     11 [32m+[m
+ .../aubo_description/urdf/materials.xacro          |     26 [32m+[m
+ scripts/simulation/aubo_i10_arm.xacro              |    232 [32m+[m
+ scripts/simulation/examples/point_cloud_sample.csv |      7 [32m+[m
+ .../examples/point_cloud_sample_ascii.ply          |     14 [32m+[m
+ .../point_cloud_sample_binary_little_endian.ply    |    Bin [31m0[m -> [32m244[m bytes
+ .../examples/point_cloud_sample_rgb_ascii.ply      |     20 [32m+[m
+ scripts/simulation/examples/trajectory_sample.json |      9 [32m+[m
+ .../examples/workpiece_exclusion_test.csv          |      3 [32m+[m
+ scripts/simulation/index.html                      |    461 [32m+[m
+ scripts/simulation/serve_noetic_demo.sh            |     48 [32m+[m
+ scripts/simulation/src/app.js                      |   5505 [32m+[m
+ scripts/simulation/styles.css                      |    676 [32m+[m
+ .../README.md"                                     |     31 [32m+[m
+ .../prepare_dataset_inputs.py"                     |    220 [32m+[m
+ .../run_dataset_trigger_regression.py"             |    211 [32m+[m
+ .../README.md"                                     |    151 [32m+[m
+ .../run_grasp_cycle.sh"                            |    180 [32m+[m
+ services/curobo_planner/_vendor/__init__.py        |     12 [32m+[m
+ services/curobo_planner/_vendor/curobo_adapter.py  |    652 [32m+[m
+ .../curobo_planner/_vendor/nvblox_curobo_bridge.py |    210 [32m+[m
+ services/curobo_planner/_vendor/project_config.py  |    261 [32m+[m
+ services/curobo_planner/_vendor/text_input.py      |    300 [32m+[m
+ services/curobo_planner/_vendor/types.py           |    126 [32m+[m
+ services/curobo_planner/curobo_plan_service.py     |    767 [32m+[m
+ skills/grasp-planner-project/SKILL.md              |     86 [32m+[m
+ skills/grasp-planner-project/agents/openai.yaml    |      4 [32m+[m
+ src/algorithm/collision_world_build_algorithm.cpp  |     18 [32m+[m
+ src/algorithm/curobo_plan_client.cpp               |    416 [32m+[m
+ src/algorithm/depth_cloud_fuse_algorithm.cpp       |    164 [32m+[m
+ src/algorithm/grasp_label_load_algorithm.cpp       |    365 [32m+[m
+ src/algorithm/grasp_output_format_algorithm.cpp    |    107 [32m+[m
+ src/algorithm/grasp_pose_compose_algorithm.cpp     |     63 [32m+[m
+ src/algorithm/joint_trajectory.cpp                 |     84 [32m+[m
+ src/algorithm/pose.cpp                             |    170 [32m+[m
+ src/algorithm/robot_kinematics_interface.cpp       |     31 [32m+[m
+ .../trajectory_collision_check_algorithm.cpp       |    184 [32m+[m
+ .../trajectory_output_format_algorithm.cpp         |    247 [32m+[m
+ .../trajectory_quality_grade_algorithm.cpp         |    198 [32m+[m
+ src/camera/camera_manager.cpp                      |     29 [32m+[m
+ src/camera/tiff_depth_camera.cpp                   |    318 [32m+[m
+ src/config/config_service.cpp                      |    264 [32m+[m
+ src/config/config_types.cpp                        |    110 [32m+[m
+ src/device/aubo_i12h_model.cpp                     |    270 [32m+[m
+ src/device/device_manager.cpp                      |    168 [32m+[m
+ src/main.cpp                                       |    195 [32m+[m
+ src/openmind_trajectory_plan_app.cpp               |    638 [32m+[m
+ src/pipeline/pipeline.cpp                          |    232 [32m+[m
+ .../stage/grasp/compose_grasp_poses_stage.cpp      |    152 [32m+[m
+ .../stage/grasp/load_grasp_labels_stage.cpp        |    171 [32m+[m
+ src/pipeline/stage/grasp/load_request_stage.cpp    |     90 [32m+[m
+ .../stage/grasp/write_grasp_output_stage.cpp       |     74 [32m+[m
+ .../trajectory/build_collision_world_stage.cpp     |    172 [32m+[m
+ .../stage/trajectory/fuse_base_cloud_stage.cpp     |    122 [32m+[m
+ .../trajectory/load_grasp_candidates_stage.cpp     |    156 [32m+[m
+ .../stage/trajectory/plan_full_cycle_stage.cpp     |    551 [32m+[m
+ .../trajectory/write_trajectory_output_stage.cpp   |    227 [32m+[m
+ src/service/output_publisher.cpp                   |    290 [32m+[m
+ src/service/response_builder.cpp                   |    110 [32m+[m
+ src/service/session_archive.cpp                    |    340 [32m+[m
+ src/service/tcp_server.cpp                         |    369 [32m+[m
+ src/service/trigger_router.cpp                     |    488 [32m+[m
+ src/tools/interrupt.cpp                            |     55 [32m+[m
+ src/tools/json_util.cpp                            |    466 [32m+[m
+ src/tools/log.cpp                                  |    145 [32m+[m
+ src/tools/logger_init.cpp                          |     28 [32m+[m
+ src/trigger_tcp_main.cpp                           |    285 [32m+[m
+ src/visualizer_server_main.cpp                     |    288 [32m+[m
+ third_party/curobo                                 |      1 [32m+[m
+ third_party/nvblox                                 |      1 [32m+[m
+ third_party/nvblox_torch                           |      1 [32m+[m
+ 360 files changed, 5121634 insertions(+)

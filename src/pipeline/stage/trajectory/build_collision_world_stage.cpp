@@ -16,6 +16,14 @@
 
 namespace openmind::trajectory_plan
 {
+namespace
+{
+
+/// 下发 GPU 的三路全分辨率深度文件（主/左/右），位于 output/trajectory_planning。
+constexpr const char* kDepthFileNames[3] = {"collision_depth_main.f32", "collision_depth_left.f32",
+                                            "collision_depth_right.f32"};
+
+} // namespace
 
 class BuildCollisionWorldStage : public StageBase
 {
@@ -99,15 +107,40 @@ class BuildCollisionWorldStage : public StageBase
         {
             return false;
         }
-        // 点云走文件而非 TCP 报文：实测 172800 点约 2 MB。
-        const std::string cloud_path = JoinPath(output_dir_, "collision_cloud_B.bin");
-        if (!CuroboPlanClient::WriteCloudBinary(ctx.cloud_b, cloud_path, error))
-        {
-            return false;
-        }
+        // 三路全分辨率深度图走文件而非 TCP 报文（每路 1280×720 float32 约 3.7MB）。
+        // GPU 服务在显存里反投影全部像素；这三个文件不进归档，归档已有原始 tiff（文档 2.5.3）。
+        const auto write_started = std::chrono::steady_clock::now();
         CuroboWorldRequest world;
-        world.cloud_path = cloud_path;
-        world.point_count = static_cast<int64_t>(ctx.cloud_b.size());
+        int64_t pixel_count = 0;
+        for (size_t camera = 0; camera < ctx.collision_depths.size(); ++camera)
+        {
+            const CollisionDepthImage& image = ctx.collision_depths[camera];
+            if (image.width <= 0 || image.height <= 0 ||
+                image.depth_mm.size() != static_cast<size_t>(image.width) * image.height)
+            {
+                error = "碰撞世界缺少第 " + std::to_string(camera) + " 路全分辨率深度图";
+                return false;
+            }
+            CuroboDepthImage request;
+            request.path = JoinPath(output_dir_, kDepthFileNames[camera]);
+            if (!CuroboPlanClient::WriteDepthBinary(image.depth_mm, request.path, error))
+            {
+                return false;
+            }
+            request.width = image.width;
+            request.height = image.height;
+            request.fx = image.fx;
+            request.fy = image.fy;
+            request.cx = image.cx;
+            request.cy = image.cy;
+            request.t_base_camera = image.t_base_camera;
+            world.depth_images.push_back(request);
+            world.depth_min_mm = image.min_depth_mm;
+            world.depth_max_mm = image.max_depth_mm;
+            pixel_count += static_cast<int64_t>(image.depth_mm.size());
+        }
+        const double write_ms = std::chrono::duration<double, std::milli>(
+                                    std::chrono::steady_clock::now() - write_started).count();
         world.voxel_size_mm = world_voxel_size_mm_;
         world.collision_activation_mm = collision_activation_mm_;
         world.enable_graph_planner = enable_graph_planner_;
@@ -121,15 +154,16 @@ class BuildCollisionWorldStage : public StageBase
         }
         const double build_ms =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
-        LOG_INFO << log_tag_ << "    [1/6] 点云文件写入=成功 world_key=" << world.world_key
-                 << " 点云=" << ctx.cloud_b.size() << " 体素=" << world_voxel_size_mm_
+        LOG_INFO << log_tag_ << "    [1/6] 深度文件写入=成功 路数=" << world.depth_images.size()
+                 << " 像素=" << pixel_count << " 写入耗时=" << write_ms
+                 << "ms world_key=" << world.world_key << " 体素=" << world_voxel_size_mm_
                  << "mm dynamic_world=updated gpu_world_update_ms=" << build_ms;
         const nlohmann::json& meta = ctx.collision_world_meta;
         if (!meta.is_null())
         {
             const nlohmann::json truncated = meta.value("truncated", nlohmann::json::object());
-            LOG_INFO << log_tag_ << "    [1/6] ① 截断 " << meta.value("cloud_points", 0) << "→"
-                     << meta.value("cloud_points_kept", 0) << " CAP=" << meta.value("cap_mm", 0.0)
+            LOG_INFO << log_tag_ << "    [1/6] ① 反投影+截断 有效像素 " << meta.value("cloud_points", 0)
+                     << "→" << meta.value("cloud_points_kept", 0) << " CAP=" << meta.value("cap_mm", 0.0)
                      << "mm z_hi=" << meta.value("z_hi_mm", 0.0) << "mm 切掉 |x|>CAP="
                      << truncated.value("abs_x_over_cap", 0)
                      << " |y|>CAP=" << truncated.value("abs_y_over_cap", 0)
@@ -149,7 +183,8 @@ class BuildCollisionWorldStage : public StageBase
                      << "（点云 " << meta.value("occupied_from_cloud", 0)
                      << " + 平台 " << meta.value("occupied_from_platform", 0) << "）";
             const nlohmann::json t = meta.value("timings_ms", nlohmann::json::object());
-            LOG_INFO << log_tag_ << "    [1/6] ④ ESDF 完成 耗时 截断=" << t.value("truncate_ms", 0.0)
+            LOG_INFO << log_tag_ << "    [1/6] ④ ESDF 完成 耗时 反投影=" << t.value("project_ms", 0.0)
+                     << "ms 截断=" << t.value("truncate_ms", 0.0)
                      << "ms 定界=" << t.value("box_ms", 0.0) << "ms 体素化="
                      << t.value("voxelize_ms", 0.0) << "ms ESDF=" << t.value("esdf_ms", 0.0)
                      << "ms 写入规划器=" << t.value("upload_ms", 0.0) << "ms";

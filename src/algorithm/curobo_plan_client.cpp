@@ -146,6 +146,7 @@ bool CuroboPlanClient::Ping(CuroboPingInfo& info, std::string& error) const
         error = "ping 失败: " + response_line;
         return false;
     }
+    info.pid = response.value("pid", static_cast<int64_t>(0));
     info.device = response.value("device", std::string());
     info.body_spheres = response.value("body_spheres", 0);
     info.end_effector_spheres = response.value("end_effector_spheres", 0);
@@ -163,8 +164,31 @@ bool CuroboPlanClient::SetWorld(const CuroboWorldRequest& request, nlohmann::jso
     meta = nlohmann::json();
     nlohmann::json document;
     document["cmd"] = "set_world";
-    document["cloud_path"] = request.cloud_path;
-    document["point_count"] = request.point_count;
+    nlohmann::json depth_images = nlohmann::json::array();
+    for (const CuroboDepthImage& image : request.depth_images)
+    {
+        nlohmann::json pose = nlohmann::json::array();
+        for (int32_t row = 0; row < 4; ++row)
+        {
+            nlohmann::json values = nlohmann::json::array();
+            for (int32_t column = 0; column < 4; ++column)
+            {
+                values.push_back(image.t_base_camera(row, column));
+            }
+            pose.push_back(values);
+        }
+        depth_images.push_back({{"path", image.path},
+                                {"width", image.width},
+                                {"height", image.height},
+                                {"fx", image.fx},
+                                {"fy", image.fy},
+                                {"cx", image.cx},
+                                {"cy", image.cy},
+                                {"T_base_camera", pose}});
+    }
+    document["depth_images"] = depth_images;
+    document["depth_min_mm"] = request.depth_min_mm;
+    document["depth_max_mm"] = request.depth_max_mm;
     document["voxel_size_mm"] = request.voxel_size_mm;
     document["collision_activation_mm"] = request.collision_activation_mm;
     document["enable_graph_planner"] = request.enable_graph_planner;
@@ -269,7 +293,7 @@ bool ParseTrajectories(const nlohmann::json& response,
             return false;
         }
         JointTrajectory trajectory;
-        trajectory.time_step_s = item.value("dt", 0.025);
+        trajectory.time_step_s = item.value("dt", 0.0);  // 缺字段时为 0，由调用方按配置核对后拒收
         trajectory.points.reserve(points.size());
         for (const nlohmann::json& row : points)
         {
@@ -383,6 +407,25 @@ bool CuroboPlanClient::PlanJoint(const JointRadians& q_start,
         return false;
     }
     return ParseTrajectories(response, trajectories, error);
+}
+
+bool CuroboPlanClient::WriteDepthBinary(const std::vector<float>& depth_mm, const std::string& path,
+                                        std::string& error)
+{
+    std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+    if (!stream.is_open())
+    {
+        error = "无法写入深度文件: " + path;
+        return false;
+    }
+    stream.write(reinterpret_cast<const char*>(depth_mm.data()),
+                 static_cast<std::streamsize>(depth_mm.size() * sizeof(float)));
+    if (!stream.good())
+    {
+        error = "深度文件写入失败: " + path;
+        return false;
+    }
+    return true;
 }
 
 bool CuroboPlanClient::WriteCloudBinary(const std::vector<Eigen::Vector3d>& cloud,

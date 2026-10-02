@@ -10,13 +10,15 @@
            applied 为规划器实际使用的构造参数（激活距离、图规划、体素缓存），
            C++ 启动时与 trajectory.yaml 逐项核对（文档 0.4）。
 
-    {"cmd": "set_world", "cloud_path": "/abs/cloud.bin", "point_count": 123456,
-     "voxel_size_mm": 3.0, "collision_activation_mm": 3.0, "enable_graph_planner": false,
+    {"cmd": "set_world",
+     "depth_images": [{"path": "/abs/collision_depth_main.f32", "width": 1280, "height": 720,
+                       "fx": .., "fy": .., "cx": .., "cy": .., "T_base_camera": [[4x4]]}, ×3],
+     "depth_min_mm": 150.0, "depth_max_mm": 2500.0, "voxel_size_mm": 3.0, "collision_activation_mm": 3.0, "enable_graph_planner": false,
      "T_base_flange": [[4x4]], "world_key": "..."}
         -> {"ok": true, "grid_shape": [nx,ny,nz], "occupied": n, "build_ms": 12.3,
             "reused": false, "collision_world": {...}}
 
-    碰撞世界按文档 2.5 建立：截断点云 → 六方向长方体（不外扩）→ 体素化
+    碰撞世界按文档 2.5 建立：GPU 反投影全分辨率深度 → 截断 → 六方向长方体（不外扩）→ 体素化
     （点云 + 工作台）→ PBA 精确 EDT → fp16 ESDF。
 
     {"cmd": "plan", "q_start_rad": [6 个], "T_goal_mm": [[4x4]],
@@ -26,7 +28,7 @@
         -> {"ok": true,
             "steps": {"ik": {...}, "pad": {...}, "graph": {...},
                       "trajopt": {...}, "interp": {...}},
-            "trajectories": [{"rank": 1, "dt": 0.025, "points": [[6 个 rad], ...]},
+            "trajectories": [{"rank": 1, "dt": 0.003125, "points": [[6 个 rad], ...]},
                              {"rank": 2, ...}]}
         -> {"ok": false, "error": "...", "failed_step": "ik|graph|trajopt|interp",
             "steps": {...}}
@@ -37,13 +39,14 @@
 
 单位约定（与 C++ 侧一致）：关节角 rad，平移 mm。服务内部转换为 cuRobo 用的米。
 
-cloud.bin 格式：float32 小端，3*N 个数，基座系 xyz，单位 mm。走文件而不是 TCP，
-避免每帧几十 MB 的点云挤在协议里。
+深度文件格式：float32 小端，行主序 width×height，单位 mm（每路 1280×720 约 3.7MB）。
+走文件而不是 TCP，避免大块数据挤在协议里。
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import socket
 import socketserver
 import sys
@@ -239,10 +242,13 @@ def _platform_floor_mm(app: dict) -> float:
 
 
 def _build_scene(request: dict, app: dict, cache_voxels: int):
-    """由融合点云 + 工作台构建 cuRobo SceneCfg（文档 2.5.4~2.5.7）。
+    """由三路全分辨率深度图 + 工作台构建 cuRobo SceneCfg（文档 2.5.3~2.5.7）。
 
-    ① 截断点云 → ② 确定长方体（六个方向，不外扩）→ ③ 体素化（点云 + 工作台）
-    → ④ PBA 精确 EDT → fp16 ESDF。长方体之外视为不碰撞。
+    ⓪ GPU 反投影全部有效像素 → ① 截断 → ② 确定长方体（六个方向，不外扩）
+    → ③ 体素化（点云 + 工作台）→ ④ PBA 精确 EDT → fp16 ESDF。长方体之外视为不碰撞。
+
+    全分辨率像素全部参与，体素量化误差硬上界 v·√3/2 对真实观测表面成立；
+    按 stride 抽样的点云只供可视化，不参与碰撞世界。
 
     Returns:
         (scene_cfg, meta)；meta 写进 trajectory_manifest.json 的 collision_world 节。
@@ -252,16 +258,42 @@ def _build_scene(request: dict, app: dict, cache_voxels: int):
 
     timings = {}
     started = time.perf_counter()
-    cloud_path = Path(request["cloud_path"])
-    count = int(request["point_count"])
     voxel_mm = float(request["voxel_size_mm"])
     voxel_size_m = voxel_mm * MM_TO_M
     activation_mm = float(request["collision_activation_mm"])
+    depth_min = float(request["depth_min_mm"])
+    depth_max = float(request["depth_max_mm"])
+    images = request.get("depth_images") or []
+    if len(images) != 3:
+        raise ValueError(f"set_world 需要主/左/右三路深度图，实际 {len(images)} 路")
 
-    raw = np.fromfile(cloud_path, dtype=np.float32, count=count * 3)
-    if raw.size != count * 3:
-        raise ValueError(f"点云文件长度不符：期望 {count * 3} 个 float32，实际 {raw.size}")
-    points = raw.reshape(count, 3).astype(np.float64)          # mm
+    # ---- ⓪ 读入三路深度并在 GPU 上反投影全部有效像素（基座系，mm）----
+    device = "cuda"
+    parts = []
+    pixel_total = 0
+    grids = {}
+    for image in images:
+        width, height = int(image["width"]), int(image["height"])
+        raw = np.fromfile(image["path"], dtype=np.float32)
+        if raw.size != width * height:
+            raise ValueError(f"深度文件长度不符：{image['path']} 期望 {width * height}，实际 {raw.size}")
+        pixel_total += raw.size
+        depth = torch.from_numpy(raw.reshape(height, width)).to(device)
+        if (height, width) not in grids:
+            grids[(height, width)] = torch.meshgrid(
+                torch.arange(height, device=device, dtype=torch.float32),
+                torch.arange(width, device=device, dtype=torch.float32), indexing="ij")
+        rows, cols = grids[(height, width)]
+        valid = torch.isfinite(depth) & (depth >= depth_min) & (depth <= depth_max)
+        camera = torch.stack([(cols - float(image["cx"])) * depth / float(image["fx"]),
+                              (rows - float(image["cy"])) * depth / float(image["fy"]),
+                              depth], dim=-1)[valid]
+        pose = torch.tensor(image["T_base_camera"], dtype=torch.float32, device=device)
+        parts.append(camera @ pose[:3, :3].T + pose[:3, 3])
+    points = torch.cat(parts)
+    count = int(points.shape[0])
+    torch.cuda.synchronize()
+    timings["project_ms"] = 1000.0 * (time.perf_counter() - started)
 
     cap = _collision_cap_mm(app)
     floor_z = _platform_floor_mm(app)
@@ -272,32 +304,40 @@ def _build_scene(request: dict, app: dict, cache_voxels: int):
     place = np.asarray(place_pose[:3], dtype=np.float64)
     z_hi = max(float(photo[2]), float(place[2]))
 
-    # ---- ① 截断点云 ----
-    over_x = np.abs(points[:, 0]) > cap
-    over_y = np.abs(points[:, 1]) > cap
+    # ---- ① 截断 ----
+    tick = time.perf_counter()
+    over_x = points[:, 0].abs() > cap
+    over_y = points[:, 1].abs() > cap
     below = points[:, 2] < floor_z
     above = points[:, 2] > z_hi
     keep = ~(over_x | over_y | below | above)
     kept = points[keep]
-    timings["truncate_ms"] = 1000.0 * (time.perf_counter() - started)
+    kept_count = int(kept.shape[0])
+    torch.cuda.synchronize()
+    timings["truncate_ms"] = 1000.0 * (time.perf_counter() - tick)
 
-    # ---- ② 确定长方体：截断后点云 ∪ 拍照法兰 ∪ 放置法兰；−Z = max(工作台底面, 点云最低)；不外扩 ----
+    # ---- ② 确定长方体：截断后点 ∪ 拍照法兰 ∪ 放置法兰；−Z = max(工作台底面, 点最低)；不外扩 ----
     tick = time.perf_counter()
-    sources = {"cloud": kept, "photo_flange": photo[None, :], "place_flange": place[None, :]}
+    if kept_count:
+        kept_min = kept.min(dim=0).values.double().cpu().numpy()
+        kept_max = kept.max(dim=0).values.double().cpu().numpy()
     lo = np.empty(3)
     hi = np.empty(3)
     lo_source = ["", "", ""]
     hi_source = ["", "", ""]
     for axis in range(2):
-        candidates_lo = {name: float(arr[:, axis].min()) for name, arr in sources.items() if len(arr)}
-        candidates_hi = {name: float(arr[:, axis].max()) for name, arr in sources.items() if len(arr)}
+        candidates_lo = {"photo_flange": float(photo[axis]), "place_flange": float(place[axis])}
+        candidates_hi = dict(candidates_lo)
+        if kept_count:
+            candidates_lo["cloud"] = float(kept_min[axis])
+            candidates_hi["cloud"] = float(kept_max[axis])
         lo_source[axis] = min(candidates_lo, key=candidates_lo.get)
         hi_source[axis] = max(candidates_hi, key=candidates_hi.get)
         lo[axis] = candidates_lo[lo_source[axis]]
         hi[axis] = candidates_hi[hi_source[axis]]
     hi[2] = z_hi
     hi_source[2] = "photo_flange" if float(photo[2]) >= float(place[2]) else "place_flange"
-    cloud_z_min = float(kept[:, 2].min()) if len(kept) else floor_z
+    cloud_z_min = float(kept_min[2]) if kept_count else floor_z
     lo[2] = max(floor_z, cloud_z_min)
     lo_source[2] = "platform_floor" if floor_z >= cloud_z_min else "cloud"
     if not np.all(hi > lo):
@@ -318,10 +358,14 @@ def _build_scene(request: dict, app: dict, cache_voxels: int):
     origin = center - (shape.astype(np.float64) - 1.0) * 0.5 * voxel_mm
     # 占据栅格直接建在 GPU 上：省掉 CPU 大数组清零与整网格上传。
     occupied = torch.zeros(tuple(int(v) for v in shape), dtype=torch.bool, device="cuda")
-    if len(kept):
-        index = np.rint((kept - origin) / voxel_mm).astype(np.int64)
-        index = torch.from_numpy(np.clip(index, 0, shape - 1)).to("cuda")
+    if kept_count:
+        # index = rint((p − origin) / v)，torch.round 与 np.rint 同为四舍六入五成双。
+        index = torch.round((kept.double() - torch.tensor(origin, device=device)) / voxel_mm).long()
+        for axis in range(3):
+            index[:, axis].clamp_(0, int(shape[axis]) - 1)
         occupied[index[:, 0], index[:, 1], index[:, 2]] = True
+        del index
+    del points, kept
     occupied_from_cloud = int(occupied.sum().item())
 
     platform_lo, platform_hi, platform_exclusion = _platform_from_app(app)
@@ -370,8 +414,10 @@ def _build_scene(request: dict, app: dict, cache_voxels: int):
         "z_hi_mm": round(z_hi, 1),
         "platform_floor_mm": round(floor_z, 1),
         "expand_mm": 0.0,
+        "source": "depth_full_res",
+        "depth_pixels_total": pixel_total,
         "cloud_points": count,
-        "cloud_points_kept": int(keep.sum()),
+        "cloud_points_kept": kept_count,
         "truncated": {"abs_x_over_cap": int(over_x.sum()), "abs_y_over_cap": int(over_y.sum()),
                       "z_below_floor": int(below.sum()), "z_above_z_hi": int(above.sum())},
         "grid_min_mm": [round(float(v), 1) for v in lo],
@@ -466,6 +512,7 @@ def _ensure_planner(args, runtime: dict | None = None):
     cache_shape = [int(v) for v in cache_shape]
     _check_grid_limit(cache_shape)
     _log(f"启动参数 激活距离={activation_mm}mm 体素缓存={cache_voxel_mm}mm×{cache_shape} "
+         f"输出点间隔={args.interpolation_dt}s 稠密缓冲={args.interpolation_buffer_size}点 "
          f"图规划={'启用' if enable_graph else '未启用（配置关闭）'} "
          f"种子=IK {args.ik_seeds}/优化 {args.trajopt_seeds}")
 
@@ -504,6 +551,7 @@ def _ensure_planner(args, runtime: dict | None = None):
         cache_dims_m=tuple(v * MM_TO_M for v in cache_dims_mm),
         cache_cuboids=args.cache_cuboids,
         interpolation_dt=args.interpolation_dt,
+        interpolation_buffer_size=args.interpolation_buffer_size,
         position_tolerance_m=args.position_tolerance_mm * MM_TO_M,
         orientation_tolerance_deg=args.orientation_tolerance_deg,
         end_effector_spheres=spheres,
@@ -515,6 +563,7 @@ def _ensure_planner(args, runtime: dict | None = None):
     planner.applied_activation_mm = activation_mm
     planner.applied_enable_graph_planner = enable_graph
     planner.applied_cache_voxel_mm = cache_voxel_mm
+    planner.applied_interpolation_dt = float(args.interpolation_dt)
     planner.applied_cache_dims_mm = [round(float(v), 1) for v in cache_dims_mm]
     planner.cache_shape = cache_shape
     planner.cache_voxels = int(np.prod(cache_shape))
@@ -563,6 +612,8 @@ def _handle(request: dict, args) -> dict:
     if command == "ping":
         import torch
         return {"ok": True,
+                # 本进程 pid：C++ 据此确认探活连上的是自己拉起的子进程，而不是端口上的残留进程。
+                "pid": os.getpid(),
                 "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
                 "warmed": _PLANNER is not None,
                 "body_spheres": getattr(_PLANNER, "body_sphere_count", 0),
@@ -580,7 +631,8 @@ def _handle(request: dict, args) -> dict:
                     "cache_voxel_size_mm": _PLANNER.applied_cache_voxel_mm,
                     "cache_dims_mm": _PLANNER.applied_cache_dims_mm,
                     "cache_shape": _PLANNER.cache_shape,
-                    "cache_voxels": _PLANNER.cache_voxels}),
+                    "cache_voxels": _PLANNER.cache_voxels,
+                    "interpolation_dt": _PLANNER.applied_interpolation_dt}),
                 "world_key": _WORLD_KEY}
 
     if command == "set_world":
@@ -605,13 +657,14 @@ def _handle(request: dict, args) -> dict:
                     "collision_world": meta,
                     "build_ms": round(1000.0 * (time.perf_counter() - started), 1)}
         t = meta["timings_ms"]
-        _log(f"set_world 截断 {meta['cloud_points']}→{meta['cloud_points_kept']} "
+        _log(f"set_world 全分辨率 像素={meta['depth_pixels_total']} 有效点={meta['cloud_points']}"
+             f"→截断后 {meta['cloud_points_kept']} "
              f"CAP={meta['cap_mm']}mm z_hi={meta['z_hi_mm']}mm "
              f"长方体 min={meta['grid_min_mm']} max={meta['grid_max_mm']} 外扩=无 "
              f"网格={meta['grid_shape']} 体素={meta['voxel_size_mm']}mm "
              f"占据={meta['occupied_voxel_count']}"
              f"(点云 {meta['occupied_from_cloud']} + 平台 {meta['occupied_from_platform']}) "
-             f"耗时 截断={t['truncate_ms']} 定界={t['box_ms']} 体素化={t['voxelize_ms']} "
+             f"耗时 反投影={t['project_ms']} 截断={t['truncate_ms']} 定界={t['box_ms']} 体素化={t['voxelize_ms']} "
              f"ESDF={t['esdf_ms']} 写入={t['upload_ms']} 合计={response['build_ms']}ms "
              f"显存峰值={torch.cuda.max_memory_allocated() / 1048576:.0f}MB")
         return response
@@ -722,7 +775,10 @@ def main() -> int:
     parser.add_argument("--trajopt-seeds", type=int, default=4)
     parser.add_argument("--return-trajectories", type=int, default=4,
                         help="每次规划交出的候选轨迹条数上限（<= trajopt-seeds）")
-    parser.add_argument("--interpolation-dt", type=float, default=0.025)
+    parser.add_argument("--interpolation-dt", type=float, default=0.003125,
+                        help="输出轨迹点间隔（s），由 C++ 按 trajectory.yaml 的 trajectory_point_interval_s 传入")
+    parser.add_argument("--interpolation-buffer-size", type=int, default=4000,
+                        help="cuRobo 稠密轨迹缓冲点数上限；输出间隔变小时须加大")
     # 收敛判据，须与 C++ 的端点复核容差配套（C++ 留 1.5 倍余量）。
     # 统一端点标准（文档 5.2）：GPU 收敛判据与 C++ 复核容差同为 1.0mm / 0.2°。
     parser.add_argument("--position-tolerance-mm", type=float, default=1.0)

@@ -29,8 +29,11 @@ const char* const kManagedFiles[] = {
     "joint_trajectory_photo_to_grasp.json",
     "joint_trajectory_grasp_to_place.json",
     "point_cloud_B.ply",
-    "collision_cloud_B.bin",
+    "collision_depth_main.f32",
+    "collision_depth_left.f32",
+    "collision_depth_right.f32",
     // ---- 历史版本产物 ----
+    "collision_cloud_B.bin",
     "joint_trajectory_full_cycle_preview.json",
     "realtime_plan_diagnostics.json",
     "request_with_generated_grasp.txt",
@@ -109,8 +112,19 @@ bool OutputPublisher::PurgeForeignGeneration(const std::string& trajectory_outpu
             return false;
         }
     }
-    if (!keep_cloud_binary &&
-        !remove_path(JoinPath(trajectory_output_dir, "collision_cloud_B.bin"), "collision_cloud_B.bin"))
+    // 碰撞世界的三路深度文件：本轮确实已下发时保留，否则一定是上轮遗留。
+    if (!keep_cloud_binary)
+    {
+        for (const char* stale : {"collision_depth_main.f32", "collision_depth_left.f32",
+                                  "collision_depth_right.f32"})
+        {
+            if (!remove_path(JoinPath(trajectory_output_dir, stale), stale))
+            {
+                return false;
+            }
+        }
+    }
+    if (!remove_path(JoinPath(trajectory_output_dir, "collision_cloud_B.bin"), "collision_cloud_B.bin"))
     {
         return false;
     }

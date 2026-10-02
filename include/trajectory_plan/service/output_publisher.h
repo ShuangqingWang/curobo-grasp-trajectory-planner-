@@ -94,7 +94,7 @@ class OutputPublisher
      * @param trajectory_output_dir output/trajectory_planning
      * @param grasp_output_dir output/grasp_generation
      * @param generation_id 本轮代次标识
-     * @param keep_cloud_binary 本轮是否确实融合出了点云（true 时保留点云二进制）
+     * @param keep_cloud_binary 本轮是否确实下发了碰撞世界（true 时保留三路深度文件）
      * @param removed 输出：实际删除的路径
      * @param error 失败原因（成功时为空）
      * @return 全部删除成功返回 true

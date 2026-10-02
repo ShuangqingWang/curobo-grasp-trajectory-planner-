@@ -1,8 +1,9 @@
-"""AUBO i10 的 cuRobo 运动规划适配器。
+"""AUBO i12H 的 cuRobo 运动规划适配器。
 
-机器人几何唯一来源是 ``scripts/可视化子项目/aubo_description/urdf/aubo_i10.urdf``。
-``model/aubo_i10_curobo.yml`` 由该 URDF 自动拟合碰撞球后生成；不要再向
-本模块加入 DH 参数或手写连杆尺寸。
+机器人几何唯一来源是 ``scripts/simulation/aubo_description/urdf/aubo_i12h.urdf``，
+规划模型为 ``model/aubo_i12h_curobo.yml``。本体碰撞球由
+``scripts/本体碰撞球生成/``（FOAM 中轴球化 + 限外溢缩半径）生成并写入该模型；
+不要再向本模块加入 DH 参数或手写连杆尺寸。
 
 单位约定：对外位置为米、姿态为 4x4 齐次矩阵、关节为弧度；cuRobo 内部相同。
 """
@@ -29,7 +30,7 @@ except Exception as exc:  # pragma: no cover - 依赖由部署环境提供
 
 
 class CuRoboFreeSegmentPlanner:
-    """基于现场 i10 URDF 的 GPU 自由段规划器。
+    """基于现场 i12H URDF 的 GPU 自由段规划器。
 
     此类只负责 ``q_start -> T_B_F_goal``。点云/深度图碰撞世界由上层在
     ``update_world_from_esdf`` 接入；在 ESDF 桥接完成前，禁止用于现场执行。
@@ -44,6 +45,7 @@ class CuRoboFreeSegmentPlanner:
                  cache_dims_m=(3.0, 3.0, 3.0),
                  cache_cuboids: int = 64,
                  interpolation_dt: float = 0.025,
+                 interpolation_buffer_size: int = 1000,
                  position_tolerance_m: float = 0.001,
                  orientation_tolerance_deg: float = 0.5,
                  end_effector_spheres: list | None = None,
@@ -56,7 +58,7 @@ class CuRoboFreeSegmentPlanner:
 
         cfg_path = Path(robot_cfg_yml).resolve()
         if not cfg_path.is_file():
-            raise FileNotFoundError(f"找不到 i10 cuRobo 模型配置: {cfg_path}")
+            raise FileNotFoundError(f"找不到 i12H cuRobo 模型配置: {cfg_path}")
         validate_collision_sphere_units(cfg_path)
         if collision_activation_distance < 0.0:
             raise ValueError("collision_activation_distance 必须非负（单位：m）")
@@ -88,6 +90,9 @@ class CuRoboFreeSegmentPlanner:
             # 实测约 10 mm 净空的无碰路径判成不可行；实际穿透仍始终是硬约束。
             optimizer_collision_activation_distance=collision_activation_distance,
             interpolation_dt=interpolation_dt,
+            # 稠密轨迹缓冲（点数上限）。输出间隔变小时点数成倍增加，须同步加大，
+            # 否则 cuRobo 在插值时直接报错（solver_trajopt.get_interpolated_trajectory）。
+            interpolation_buffer_size=interpolation_buffer_size,
             use_cuda_graph=use_cuda_graph,
             # 未传场景时同样预分配，避免后续 update_world 静默失效。
             scene_model=scene_cfg,
@@ -515,7 +520,7 @@ def _load_robot_config_dict(robot_cfg_yml: Path) -> dict:
 
 
 def _count_spheres(robot_config: dict) -> int:
-    """统计本体碰撞球总数（附录 A 的交叉验证：i12h 本体应为 420 个）。"""
+    """统计本体碰撞球总数；启动时与 C++ 侧 aubo.json 的本体球数交叉核对，不一致即启动失败。"""
     spheres = robot_config["kinematics"].get("collision_spheres") or {}
     return sum(len(v or []) for v in spheres.values())
 
@@ -617,7 +622,7 @@ def validate_collision_sphere_units(robot_cfg_yml: str | Path) -> None:
     """拒绝把毫米碰撞球当作米加载到 cuRobo。
 
     URDF、cuRobo 和本适配器均以米为长度单位。该检查刻意不依赖 PyYAML，确保在
-    CUDA 初始化之前就能报告配置问题。i10 连杆网格的拟合球半径应小于 0.2 m；
+    CUDA 初始化之前就能报告配置问题。i12H 连杆碰撞球半径应小于 0.2 m；
     毫米配置通常会出现 1--100 这一量级的半径。
     """
     text = Path(robot_cfg_yml).read_text(encoding="utf-8")

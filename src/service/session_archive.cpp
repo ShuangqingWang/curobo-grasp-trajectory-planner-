@@ -299,6 +299,12 @@ bool SessionArchive::ArchiveOutputs(const TriggerArchive& archive,
         {
             continue;
         }
+        // 碰撞世界的三路深度文件不归档：本轮 input/ 已保存原始 tiff，可据此复现（文档 2.5.3）。
+        const std::string file_name = source.filename().string();
+        if (file_name.rfind("collision_depth_", 0) == 0 && source.extension() == ".f32")
+        {
+            continue;
+        }
         std::filesystem::create_directories(target.parent_path(), code);
         std::error_code copy_code;
         std::filesystem::copy_file(source, target,

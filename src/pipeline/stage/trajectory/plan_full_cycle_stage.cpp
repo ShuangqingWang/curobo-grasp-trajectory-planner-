@@ -68,6 +68,7 @@ class PlanFullCycleStage : public StageBase
         no_solution_ms_ = cfg.value("max_no_solution_search_ms", 30000.0);
         max_no_solution_candidates_ = cfg.value("max_no_solution_candidates", 12);
         endpoint_joint_tolerance_deg_ = cfg.value("endpoint_joint_tolerance_deg", 0.5);
+        point_interval_s_ = cfg.value("trajectory_point_interval_s", 0.003125);
 
         GradeThresholds thresholds;
         if (cfg.contains("grade") && cfg["grade"].is_object())
@@ -196,8 +197,13 @@ class PlanFullCycleStage : public StageBase
             std::vector<JointTrajectory> grasp_trajectories;
             CuroboPlanSteps steps;
             std::string plan_error;
-            const bool planned = planner_.Plan(ctx.q_photo, goal_flange, return_trajectories_,
-                                               grasp_trajectories, steps, plan_error);
+            bool planned = planner_.Plan(ctx.q_photo, goal_flange, return_trajectories_,
+                                         grasp_trajectories, steps, plan_error);
+            if (planned && !CheckPointInterval(grasp_trajectories, plan_error))
+            {
+                planned = false;
+                steps.failed_step = "interval";
+            }
             LogPlanSteps(steps, candidate_index, planned);
             if (!planned)
             {
@@ -360,8 +366,14 @@ class PlanFullCycleStage : public StageBase
         std::vector<JointTrajectory> place_trajectories;
         CuroboPlanSteps place_steps;
         std::string place_error;
-        if (!planner_.PlanJoint(q_grasp, ctx.q_place, place_return_trajectories_, place_trajectories,
-                                place_steps, place_error))
+        bool place_planned = planner_.PlanJoint(q_grasp, ctx.q_place, place_return_trajectories_,
+                                                place_trajectories, place_steps, place_error);
+        if (place_planned && !CheckPointInterval(place_trajectories, place_error))
+        {
+            place_planned = false;
+            place_steps.failed_step = "interval";
+        }
+        if (!place_planned)
         {
             ++statistics.place_plan_failed;
             attempt.failure_reason = "放置段关节目标规划失败: " + place_error;
@@ -377,7 +389,7 @@ class PlanFullCycleStage : public StageBase
                  << " 优化收敛=" << place_steps.trajopt_converged << " 耗时=" << place_steps.total_ms
                  << "ms";
         LOG_INFO << log_tag_ << "    [5.3.3] 插值 返回候选=" << place_trajectories.size()
-                 << " dt=" << (place_trajectories.empty() ? 0.025 : place_trajectories[0].time_step_s)
+                 << " dt=" << (place_trajectories.empty() ? point_interval_s_ : place_trajectories[0].time_step_s)
                  << "s";
 
         // 放置候选落盘，文件名包含父抓取轨迹。
@@ -505,6 +517,24 @@ class PlanFullCycleStage : public StageBase
     }
 
     /**
+     * @brief 核对 GPU 返回轨迹的点间隔等于配置 trajectory_point_interval_s（唯一来源）。
+     *        不一致说明 GPU 子进程与配置脱节，整批轨迹拒收，不发布。
+     */
+    bool CheckPointInterval(const std::vector<JointTrajectory>& trajectories, std::string& error) const
+    {
+        for (const JointTrajectory& trajectory : trajectories)
+        {
+            if (std::fabs(trajectory.time_step_s - point_interval_s_) > 1e-12)
+            {
+                error = "返回轨迹点间隔 " + std::to_string(trajectory.time_step_s) + "s 与配置 " +
+                        std::to_string(point_interval_s_) + "s 不一致";
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * @brief 打印 GPU 内部五步统计 [4.1]~[4.5]。
      */
     void LogPlanSteps(const CuroboPlanSteps& steps, size_t candidate_index, bool planned) const
@@ -544,6 +574,7 @@ class PlanFullCycleStage : public StageBase
     double endpoint_position_tolerance_mm_ = 1.0;  ///< 法兰端点位置容差
     double endpoint_rotation_tolerance_deg_ = 0.2; ///< 法兰端点姿态容差
     double endpoint_joint_tolerance_deg_ = 0.5;    ///< 放置段关节端点容差
+    double point_interval_s_ = 0.003125;           ///< 输出轨迹点间隔（s），trajectory.yaml 唯一来源
 };
 
 REGISTER_STAGE("plan_full_cycle", PlanFullCycleStage);

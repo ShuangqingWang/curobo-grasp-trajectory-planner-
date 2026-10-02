@@ -21,7 +21,7 @@ namespace openmind::trajectory_plan
 struct JointTrajectory
 {
     std::vector<JointRadians> points; ///< 六轴关节角（rad），首点为起点、末点为终点
-    double time_step_s = 0.025;       ///< 相邻点采样间隔，单位 s
+    double time_step_s = 0.0;         ///< 相邻点采样间隔，单位 s（取自 GPU 返回值，按配置核对）
 
     /** @brief 轨迹点数。 */
     int64_t PointCount() const

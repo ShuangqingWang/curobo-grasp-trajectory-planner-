@@ -6,6 +6,7 @@
 #include "trajectory_plan/openmind_trajectory_plan_app.h"
 
 #include <fcntl.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -224,6 +225,13 @@ bool OpenmindTrajectoryPlanApp::StartCuroboService(std::string& error)
     const double voxel_mm = curobo.value("world_voxel_size_mm", 3.0);
     const bool enable_graph = curobo.value("enable_graph_planner", false);
     const double z_hi_max_mm = curobo.value("world_cache_z_hi_max_mm", 600.0);
+    // 输出轨迹点间隔：唯一来源 trajectory.yaml 的 trajectory_point_interval_s。
+    const double point_interval_s = trajectory_flow_config_.value("trajectory_point_interval_s", 0.003125);
+    if (!(point_interval_s > 0.0))
+    {
+        error = "trajectory_point_interval_s 必须为正";
+        return false;
+    }
     if (!app.contains("robot_reach_mm"))
     {
         error = "app.json 缺少 robot_reach_mm，无法确定体素缓存尺寸";
@@ -245,12 +253,27 @@ bool OpenmindTrajectoryPlanApp::StartCuroboService(std::string& error)
                                           "--cache-voxel-size-mm", FormatNumber(voxel_mm),
                                           "--cache-dims-mm", FormatNumber(cache_dims_mm[0]),
                                           FormatNumber(cache_dims_mm[1]),
-                                          FormatNumber(cache_dims_mm[2])};
+                                          FormatNumber(cache_dims_mm[2]),
+                                          "--interpolation-dt", FormatNumber(point_interval_s)};
     if (enable_graph)
     {
         arguments.push_back("--enable-graph-planner");
     }
     arguments.push_back("--warmup-on-start");
+
+    // 拉起之前，端口上不得已有 GPU 服务在应答：否则新子进程绑定端口失败，而探活会连到那个
+    // 残留进程上并"通过"，日志写的是新配置、实际跑的是旧进程。
+    {
+        CuroboPlanClient probe;
+        std::string probe_error;
+        CuroboPingInfo stale;
+        if (probe.Init(host, std::stoi(port), 2000, probe_error) && probe.Ping(stale, probe_error))
+        {
+            error = "端口 " + host + ":" + port + " 已有 GPU 服务在应答（pid=" +
+                    std::to_string(stale.pid) + "，可能是上次残留的子进程），请先结束它";
+            return false;
+        }
+    }
 
     // 子进程 stdout/stderr 落到会话目录（文档 0.5）。
     const std::string child_log = JoinPath(session_archive_.SessionDir(), "curobo_service.log");
@@ -261,6 +284,7 @@ bool OpenmindTrajectoryPlanApp::StartCuroboService(std::string& error)
         return false;
     }
 
+    const pid_t parent_pid = getpid();
     const pid_t pid = fork();
     if (pid < 0)
     {
@@ -270,6 +294,12 @@ bool OpenmindTrajectoryPlanApp::StartCuroboService(std::string& error)
     }
     if (pid == 0)
     {
+        // 主进程无论怎样退出（含被强杀），子进程都随之收到 SIGTERM，不留孤儿占着端口。
+        prctl(PR_SET_PDEATHSIG, SIGTERM);
+        if (getppid() != parent_pid)
+        {
+            _exit(1);  // fork 与 prctl 之间父进程已退出
+        }
         dup2(log_fd, STDOUT_FILENO);
         dup2(log_fd, STDERR_FILENO);
         std::vector<char*> argv;
@@ -288,6 +318,7 @@ bool OpenmindTrajectoryPlanApp::StartCuroboService(std::string& error)
              << " endpoint=" << host << ":" << port << " 激活距离=" << activation_mm
              << "mm 体素缓存=" << voxel_mm << "mm×[" << cache_dims_mm[0] << ", " << cache_dims_mm[1]
              << ", " << cache_dims_mm[2] << "]mm 图规划=" << (enable_graph ? "启用" : "关闭")
+             << " 输出点间隔=" << point_interval_s << "s"
              << " 日志=" << child_log;
 
     CuroboPlanClient planner;
@@ -313,6 +344,14 @@ bool OpenmindTrajectoryPlanApp::StartCuroboService(std::string& error)
         std::string ping_error;
         if (planner.Ping(ping, ping_error))
         {
+            // 必须是自己拉起的子进程在应答，不能是端口上的其他进程。
+            if (ping.pid != static_cast<int64_t>(curobo_pid_))
+            {
+                error = "探活应答来自 pid=" + std::to_string(ping.pid) + "，不是本进程拉起的子进程 pid=" +
+                        std::to_string(curobo_pid_);
+                StopCuroboService();
+                return false;
+            }
             // 启动后核对：子进程实际构造参数必须与 trajectory.yaml 一致（文档 0.4）。
             const nlohmann::json& applied = ping.applied;
             std::string mismatch;
@@ -334,6 +373,11 @@ bool OpenmindTrajectoryPlanApp::StartCuroboService(std::string& error)
             {
                 mismatch = "world_voxel_size_mm 期望=" + FormatNumber(voxel_mm) + " 实际=" +
                            applied["cache_voxel_size_mm"].dump();
+            }
+            else if (std::fabs(applied.value("interpolation_dt", -1.0) - point_interval_s) > 1e-12)
+            {
+                mismatch = "trajectory_point_interval_s 期望=" + FormatNumber(point_interval_s) +
+                           " 实际=" + applied["interpolation_dt"].dump();
             }
             if (!mismatch.empty())
             {
@@ -414,29 +458,34 @@ bool OpenmindTrajectoryPlanApp::ExportCollisionModelSnapshot(std::string& error)
             trajectory_flow_config_.value("curobo", nlohmann::json::object());
         CuroboPlanClient planner;
         std::string planner_error;
-        if (planner.Init(curobo.value("host", std::string("127.0.0.1")),
-                         curobo.value("port", 34567), curobo.value("timeout_ms", 120000),
-                         planner_error))
+        if (!planner.Init(curobo.value("host", std::string("127.0.0.1")),
+                          curobo.value("port", 34567), curobo.value("timeout_ms", 120000),
+                          planner_error))
         {
-            CuroboPingInfo ping;
-            if (!planner.Ping(ping, planner_error))
-            {
-                error = "读取 GPU 完整模型碰撞球数失败: " + planner_error;
-                return false;
-            }
-            end_effector_sphere_count = ping.end_effector_spheres;
-            if (ping.end_effector_detail.is_object())
-            {
-                end_effector_spheres =
-                    ping.end_effector_detail.value("spheres", nlohmann::json::array());
-                end_effector_bulge_mm = ping.end_effector_detail.value("bulge_mm", 0.0);
-            }
-            if (ping.body_spheres != static_cast<int64_t>(spheres.size()))
-            {
-                // 附录 A 的交叉验证：两份模型的本体球数必须一致，装错不会报错。
-                LOG_WARN << "[service][启动] 本体碰撞球数不一致：C++=" << spheres.size()
-                         << " GPU=" << ping.body_spheres << "，请核对是否装了同一机型";
-            }
+            error = "连接 GPU 服务读取完整模型碰撞球失败: " + planner_error;
+            return false;
+        }
+        CuroboPingInfo ping;
+        if (!planner.Ping(ping, planner_error))
+        {
+            error = "读取 GPU 完整模型碰撞球数失败: " + planner_error;
+            return false;
+        }
+        end_effector_sphere_count = ping.end_effector_spheres;
+        if (ping.end_effector_detail.is_object())
+        {
+            end_effector_spheres = ping.end_effector_detail.value("spheres", nlohmann::json::array());
+            end_effector_bulge_mm = ping.end_effector_detail.value("bulge_mm", 0.0);
+        }
+        // 本体碰撞球来自两份配置：C++ 读 config/base/device/aubo.json，GPU 读 model/aubo_i12h_curobo.yml。
+        // 两份不一致时碰撞判定与可视化/复核对不上，且不会有任何运行期报错，故启动直接失败。
+        // 两份配置由 scripts/本体碰撞球生成/apply_spheres.py 同时写入。
+        if (ping.body_spheres != static_cast<int64_t>(spheres.size()))
+        {
+            error = "本体碰撞球数不一致：C++(aubo.json)=" + std::to_string(spheres.size()) +
+                    " GPU(aubo_i12h_curobo.yml)=" + std::to_string(ping.body_spheres) +
+                    "，请用 scripts/本体碰撞球生成/apply_spheres.py 同步两份配置";
+            return false;
         }
     }
     document["end_effector_spheres"] = end_effector_spheres;

@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 project(OpenmindTrajectoryPlan LANGUAGES CXX)
 
+# 未指定构建类型时默认 Release（-O3 -DNDEBUG）。空构建类型不开任何优化，
+# Eigen 在 -O0 下极慢：实测 17 万点深度融合约 135ms。
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "构建类型：Release / RelWithDebInfo / Debug" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

@@ -87,6 +87,9 @@ def main() -> int:
                         help="每轮触发完成后、准备下一项前的等待秒数；默认 5")
     parser.add_argument("--workpiece-type", default=None,
                         help="仅测试指定工件号，例如 QR0010；默认测试全部工件")
+    parser.add_argument("--random-fraction", type=float, default=None,
+                        help="随机抽取这一比例的测试项（0~1，例如 0.2），抽样后按原顺序执行")
+    parser.add_argument("--seed", type=int, default=0, help="随机抽样种子；默认 0，保证可复现")
     parser.add_argument("--retry-failures-from", type=Path, default=None,
                         help="仅重测指定 JSONL 报告中失败的文件夹/Workpiece[n] 条目")
     args = parser.parse_args()
@@ -121,6 +124,15 @@ def main() -> int:
         if not items:
             print(f"错误：失败报告中没有与当前数据集匹配的失败测试项: {source_report}", file=sys.stderr)
             return 2
+    if args.random_fraction is not None:
+        if not 0.0 < args.random_fraction <= 1.0:
+            print("错误：--random-fraction 必须位于 (0, 1]", file=sys.stderr)
+            return 2
+        import random
+        picked = sorted(random.Random(args.seed).sample(range(len(items)),
+                                                        max(1, round(len(items) * args.random_fraction))))
+        items = [items[index] for index in picked]
+        print(f"随机抽样：比例={args.random_fraction} 种子={args.seed} 抽中 {len(items)} 项")
     if args.start_sequence < 1 or args.start_sequence > len(items):
         print(f"错误：--start-sequence 必须位于 1..{len(items)}", file=sys.stderr)
         return 2

@@ -66,6 +66,23 @@ struct PlanAttempt
 };
 
 /**
+ * @brief 一路全分辨率深度图及其相机参数（碰撞世界输入）。
+ */
+struct CollisionDepthImage
+{
+    int32_t width = 0;               ///< 宽，pixel
+    int32_t height = 0;              ///< 高，pixel
+    std::vector<float> depth_mm;     ///< 行主序深度（mm），size = width*height
+    double fx = 0.0;                 ///< 焦距 x，pixel
+    double fy = 0.0;                 ///< 焦距 y，pixel
+    double cx = 0.0;                 ///< 主点 x，pixel
+    double cy = 0.0;                 ///< 主点 y，pixel
+    double min_depth_mm = 0.0;       ///< 有效深度下界
+    double max_depth_mm = 0.0;       ///< 有效深度上界
+    Eigen::Matrix4d t_base_camera = Eigen::Matrix4d::Identity(); ///< 相机 → 基座（mm）
+};
+
+/**
  * @brief 一次触发的数据总线：stage 之间唯一的交接点。
  */
 struct PipelineContext
@@ -113,6 +130,10 @@ struct PipelineContext
     std::vector<uint32_t> cloud_source_pixel_indices;
     int32_t main_depth_width = 0;  ///< 主深度图宽度，用于校验 RGB 像素一一对应
     int32_t main_depth_height = 0; ///< 主深度图高度，用于校验 RGB 像素一一对应
+    /// 碰撞世界用的三路**全分辨率**深度图（主/左/右），由 fuse_base_cloud 解码后保留，
+    /// build_collision_world 原样交给 GPU 服务反投影（文档 2.5.3）。cloud_b 只按 stride 4
+    /// 抽样，仅供可视化与归档，不参与碰撞世界。
+    std::array<CollisionDepthImage, 3> collision_depths;
     /// 本轮 GPU 碰撞世界的可审计元数据（改动十）：体素尺寸、激活距离、外扩量及来源、
     /// 锚点、网格范围/尺寸/体素数、占据体素（按点云与平台拆分）。
     /// 网格每轮都变（点云每轮都变），故不能放进启动期的固定模型快照，

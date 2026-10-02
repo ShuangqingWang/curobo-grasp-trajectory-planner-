@@ -7,6 +7,7 @@
  * 完整深度解码和像素检查由本 stage 执行；深度单位 mm。
  */
 
+#include <array>
 #include <chrono>
 
 #include "trajectory_plan/algorithm/depth_cloud_fuse_algorithm.h"
@@ -50,6 +51,7 @@ class FuseBaseCloudStage : public StageBase
             calibration.t_flange_camera = config.t_cam2flange;
             calibration.min_depth_mm = min_depth;
             calibration.max_depth_mm = max_depth;
+            // 点云按 stride 4 抽样，只用于可视化与归档；碰撞世界改用全分辨率深度图（文档 2.5.3）。
             calibration.stride_px = 4;
             return calibration;
         };
@@ -91,6 +93,27 @@ class FuseBaseCloudStage : public StageBase
         const double decode_ms =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - decode_started)
                 .count();
+        // 全分辨率深度交给碰撞世界：GPU 服务直接反投影全部像素（文档 2.5.3）。
+        const std::array<const DepthMap*, 3> maps = {&main_map, &left_map, &right_map};
+        const std::array<const DepthCameraCalibration*, 3> calibrations = {
+            &main_calibration_, &left_calibration_, &right_calibration_};
+        for (size_t camera = 0; camera < 3; ++camera)
+        {
+            const DepthMap& map = *maps[camera];
+            const DepthCameraCalibration& calibration = *calibrations[camera];
+            CollisionDepthImage& target = ctx.collision_depths[camera];
+            target.width = map.width;
+            target.height = map.height;
+            target.depth_mm.assign(map.depth_mm.begin(), map.depth_mm.end());
+            target.fx = calibration.fx;
+            target.fy = calibration.fy;
+            target.cx = calibration.cx;
+            target.cy = calibration.cy;
+            target.min_depth_mm = calibration.min_depth_mm;
+            target.max_depth_mm = calibration.max_depth_mm;
+            target.t_base_camera = ctx.photo_flange * calibration.t_flange_camera;
+        }
+
         const auto fusion_started = std::chrono::steady_clock::now();
         if (!fuser.Fuse(main_map, left_map, right_map, ctx.cloud_b, ctx.cloud_camera_indices,
                         ctx.cloud_source_pixel_indices, error))

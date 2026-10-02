@@ -82,8 +82,11 @@ curobo:
   # 平台按体素并入同一张距离场；置 false 直接报错，非可切换项（文档 2.13）。
   platform_as_voxel: true
 
-# 轨迹点采样间隔（aubo_joint_path/v1 固定 0.025 s/点）。
-trajectory_point_interval_s: 0.025
+# 输出轨迹点间隔（s，cuRobo 内部时间轴，不代表真实执行速度）。唯一来源：
+# C++ 启动 GPU 子进程时作为 --interpolation-dt 传入，ping 核对，返回轨迹的 dt 逐条核对。
+# 取 0.025 / 8：放置段末端碰撞球每步移动 ≤ 约 5.1mm < 球直径 5.2mm，
+# cuRobo 对每个输出点做的最终离散碰撞检查之间不再留镂空。
+trajectory_point_interval_s: 0.003125
 
 # 完整周期总分 100 = 抓取离线分 + 拍照→抓取 + 抓取→放置 + 连续性。
 score_weights:

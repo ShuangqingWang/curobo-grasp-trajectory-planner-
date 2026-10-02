@@ -91,7 +91,7 @@ const DEFAULT_POINT_CLOUD = [
 ];
 const DEFAULT_MAX_PLY_POINTS = 300000;
 const GRASP_DWELL_SECONDS = 1.0;
-const POSITION_PATH_DISPLAY_INTERVAL_S = 0.025;
+const POSITION_PATH_DISPLAY_INTERVAL_S = 0.025; // 轨迹文件未带 dt_s 时的缺省显示间隔
 const IK_MAX_ITERATIONS = 90;
 const IK_POSITION_TOLERANCE_M = 0.001;
 const IK_ROTATION_TOLERANCE_RAD = Math.PI / 360;
@@ -3608,7 +3608,7 @@ async function loadLatestPipelineOutput(options = {}) {
   return manifest;
 }
 
-function trajectoryTimeSeconds(item, index) {
+function trajectoryTimeSeconds(item, index, intervalS = POSITION_PATH_DISPLAY_INTERVAL_S) {
   if (Number.isFinite(Number(item?.t))) {
     return Number(item.t);
   }
@@ -3623,12 +3623,16 @@ function trajectoryTimeSeconds(item, index) {
       return sec + nanosec * 1e-9;
     }
   }
-  return index * POSITION_PATH_DISPLAY_INTERVAL_S;
+  return index * intervalS;
 }
 
 function trajectoryFramesFromData(data, phaseOverride = null) {
   const unit = data?.unit || data?.units?.positions || "deg";
   const source = Array.isArray(data) ? data : data?.points || data?.frames || [];
+  // 按文件自带的点间隔（aubo_joint_path/v1 的 dt_s）合成显示时间；缺省才用 0.025。
+  const fileIntervalS = Number(data?.dt_s);
+  const pointIntervalS = Number.isFinite(fileIntervalS) && fileIntervalS > 0
+    ? fileIntervalS : POSITION_PATH_DISPLAY_INTERVAL_S;
   const frames = [];
   for (let index = 0; index < source.length; index += 1) {
     const item = source[index];
@@ -3644,7 +3648,7 @@ function trajectoryFramesFromData(data, phaseOverride = null) {
       continue;
     }
     frames.push({
-      t: trajectoryTimeSeconds(item, index),
+      t: trajectoryTimeSeconds(item, index, pointIntervalS),
       q,
       phase: phaseOverride || item.phase || data?.route || null,
     });

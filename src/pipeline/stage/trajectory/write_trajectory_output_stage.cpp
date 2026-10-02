@@ -55,7 +55,10 @@ class WriteTrajectoryOutputStage : public StageBase
         // point_cloud.status="pending"，由 router 在发完 completed 之后写出并补发。
         const std::string cloud_name = "point_cloud_B.ply";
         keep.push_back(cloud_name);
-        keep.push_back("collision_cloud_B.bin");
+        // 碰撞世界的三路全分辨率深度文件（不进归档）。
+        keep.push_back("collision_depth_main.f32");
+        keep.push_back("collision_depth_left.f32");
+        keep.push_back("collision_depth_right.f32");
 
         TrajectoryOutputFormatAlgorithm::ManifestInput manifest;
         manifest.request_id = ctx.request_id;
